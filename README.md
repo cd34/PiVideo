@@ -261,11 +261,11 @@ RUST_LOG=info ./pivideo-daemon
 
 ## Appendix: Shopping List — 3-Button Setup
 
-Everything needed to build a working 3-button kiosk. Assumes a Pi 4 Model B — adjust the power supply and HDMI cable if using a different model.
+Everything needed to build a working 3-button kiosk. Adjust the power supply and HDMI cable to match whichever Pi model you buy.
 
 | Item | Qty | Notes |
 |------|-----|-------|
-| Raspberry Pi 4 Model B (2 GB) | 1 | Pi 3 B+ works too |
+| Raspberry Pi (3 B+, 4, or 5 — whichever is in stock) | 1 | Any of these models works; buy what's available |
 | 32 GB microSD card (Class 10 / A1 rated) | 1 | |
 | Official Pi 4 USB-C power supply (3A) | 1 | |
 | micro-HDMI to HDMI cable | 1 | |
@@ -359,6 +359,8 @@ For development without building an image (daemon compilation only), install Rus
 ### Raspberry Pi
 
 Available from [raspberrypi.com](https://www.raspberrypi.com/products/) and authorized resellers. The **Pi 3 B+**, **Pi 4 B**, or **Pi 5 (2GB or 4GB)** are the recommended choices — right balance of performance and cost. Older models (Pi 1, Pi 2) are not recommended; video playback will be sluggish.
+
+Availability varies — some models are frequently out of stock. Any model in the table below will work; buy whichever is in stock and within budget at the time.
 
 | Model | Power | HDMI | Notes |
 |-------|-------|------|-------|
