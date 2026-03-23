@@ -3,6 +3,7 @@ Version: VERSION_PLACEHOLDER
 Architecture: arm64
 Maintainer: PiVideo <https://github.com/cd34/PiVideo>
 Section: misc
+Priority: optional
 Depends: mpv, python3
 Description: Raspberry Pi video kiosk daemon and web UI
  GPIO-triggered video kiosk for museums and visitor centers.
