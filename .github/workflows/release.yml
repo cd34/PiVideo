@@ -37,8 +37,8 @@ jobs:
 
       - name: Build SD card image
         run: |
-          sudo apt-get install -y coreutils quilt parted qemu-user-static qemu-user-binfmt \
-            debootstrap zerofree zip dosfstools libarchive-tools libcap2-bin rsync xz-utils \
+          sudo apt-get install -y coreutils quilt parted qemu-user-static debootstrap \
+            zerofree zip dosfstools libarchive-tools libcap2-bin rsync xz-utils \
             file curl bc pigz xxd arch-test
           git clone --depth 1 https://github.com/RPi-Distro/pi-gen.git /tmp/pi-gen
           for stage in stage0 stage1 stage2; do touch /tmp/pi-gen/$stage/SKIP_IMAGES; done
