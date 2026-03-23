@@ -289,6 +289,7 @@ Everything needed to build a working 3-button kiosk. Adjust the power supply and
 | Small flathead screwdriver | For screw terminal HAT |
 | Wire stripper (22–24 AWG) | |
 | Spade terminal crimper | Only if crimping your own terminals instead of using pre-made wires |
+| 16mm metric hole saw | For mounting buttons; panel must be ≤ 1/2" (13mm) thick. No US fractional equivalent — 5/8" is slightly undersized and won't fit. |
 
 ---
 
@@ -464,3 +465,4 @@ All button ground wires meet at a ground bus, then a single wire runs from the b
 - Wire stripper (22–24 AWG range)
 - Small flathead screwdriver (for screw terminal HAT)
 - Spade terminal crimper (if crimping your own 2.8mm terminals)
+- 16mm metric hole saw (for mounting buttons; panel must be ≤ 1/2" / 13mm thick — 5/8" US bits are slightly undersized and won't fit)
