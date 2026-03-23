@@ -259,6 +259,39 @@ RUST_LOG=info ./pivideo-daemon
 
 ---
 
+## Appendix: Shopping List — 3-Button Setup
+
+Everything needed to build a working 3-button kiosk. Assumes a Pi 4 Model B — adjust the power supply and HDMI cable if using a different model.
+
+| Item | Qty | Notes |
+|------|-----|-------|
+| Raspberry Pi 4 Model B (2 GB) | 1 | Pi 3 B+ works too |
+| 32 GB microSD card (Class 10 / A1 rated) | 1 | |
+| Official Pi 4 USB-C power supply (3A) | 1 | |
+| micro-HDMI to HDMI cable | 1 | |
+| GPIO Screw Terminal HAT | 1 | |
+| 16mm metal pushbutton | 3 | Any color; LED ring optional |
+| Spade connector wire 3ft female (2-pack) | 3 | 6 wires needed — 1 signal + 1 GND per button |
+| 22 AWG stranded hookup wire | 1 spool | Two colors recommended (signal / GND) |
+| Ground bus / terminal strip | 1 | For shared GND; add a second if using LEDs |
+
+**If using the LED ring on the buttons, also add:**
+
+| Item | Qty | Notes |
+|------|-----|-------|
+| Spade connector wire 3ft female (2-pack) | 2 | 3 more wires for LED+ connections |
+| Ground bus / terminal strip | 1 | Serves as the 3.3V power bus |
+
+**Tools needed:**
+
+| Tool | Notes |
+|------|-------|
+| Small flathead screwdriver | For screw terminal HAT |
+| Wire stripper (22–24 AWG) | |
+| Spade terminal crimper | Only if crimping your own terminals instead of using pre-made wires |
+
+---
+
 ## Appendix: Build Requirements
 
 Requirements for running `make build` and `make image` on your development machine.
@@ -400,12 +433,14 @@ One per video slot, up to 7. Any normally-open momentary contact switch works. T
 
 **Any momentary switch** — any normally-open momentary contact switch works. If it has two terminals and closes a circuit when pressed, it will work.
 
-### Arcade Button Quick-Connect Wires — 0.25" (6.3mm)
+### Button Wiring — Spade Connectors
 
-Slip directly onto the spade terminals of arcade buttons — no crimping or soldering needed. Two per button (one for signal, one for ground).
+The 16mm metal pushbuttons use 2.8mm (0.110") female spade terminals. Two wires per button: one for signal, one for ground.
 
-- Adafruit — [link TBD]
-- Search: *"Arcade Button and Switch Quick-Connect Wires 0.25"*
+**Pre-made option** — spade connector wires with the terminal already attached, just slip onto the button and run to the screw terminal HAT:
+- [Sparkfun — Spade Connector Wire 3ft Female (2-pack)](https://www.sparkfun.com/spade-connector-wire-3ft-female-2-pack.html)
+
+**Crimp your own** — use 22 AWG stranded wire cut to length with 2.8mm female spade terminals crimped on one end. Requires a spade terminal crimper (search: *"2.8mm female spade terminal crimper"*) and a bag of 2.8mm female spade terminals.
 
 ### Wire
 
@@ -417,20 +452,13 @@ Slip directly onto the spade terminals of arcade buttons — no crimping or sold
 
 ### Ground Bus
 
-All button ground wires meet at a ground bus, then a single wire runs from the bus to a GND terminal on the HAT.
+All button ground wires meet at a ground bus, then a single wire runs from the bus to a GND terminal on the HAT. If using illuminated buttons, a second identical strip serves as the 3.3V bus.
 
 - [Square D 9-Terminal Ground Bar Kit (Home Depot)](https://www.homedepot.com/p/Square-D-9-Terminal-Ground-Bar-Kit-for-QO-Homeline-Electrical-Panel-Load-Center-PK9GTACP/100161420) — solid, screw-terminal ground bar; more than enough for 7 buttons
 - Search: *"barrier strip terminal block"* for smaller alternatives
-
-### Ferrules + Crimper (optional but recommended)
-
-Crimp a ferrule onto each wire end before inserting into a screw terminal. Prevents fraying and makes re-termination clean.
-
-- **Size:** 0.5 mm² for 22 AWG
-- Search: *"ferrule crimper kit"* — kits typically include the crimper and an assortment of sizes
 
 ### Tools
 
 - Wire stripper (22–24 AWG range)
 - Small flathead screwdriver (for screw terminal HAT)
-- Ferrule crimper (if using ferrules)
+- Spade terminal crimper (if crimping your own 2.8mm terminals)
