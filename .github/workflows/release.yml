@@ -44,14 +44,10 @@ jobs:
           for stage in stage0 stage1 stage2; do touch /tmp/pi-gen/$stage/SKIP_IMAGES; done
           for stage in stage3 stage4 stage5; do touch /tmp/pi-gen/$stage/SKIP; done
           ln -sf "$GITHUB_WORKSPACE/image/stage-pivideo" /tmp/pi-gen/stage-pivideo
-          cat > /tmp/pi-gen/config <<'EOF'
-          IMG_NAME="pivideo"
-          RELEASE="bookworm"
-          DEPLOY_COMPRESSION=xz
-          ENABLE_SSH=1
-          STAGE_LIST="stage0 stage1 stage2 stage-pivideo"
-          EOF
+          printf 'IMG_NAME="pivideo"\nRELEASE="bookworm"\nDEPLOY_COMPRESSION=xz\nENABLE_SSH=1\nARCH=arm64\nSTAGE_LIST="stage0 stage1 stage2 stage-pivideo"\n' > /tmp/pi-gen/config
           cd /tmp/pi-gen && sudo bash build.sh
+          sudo cp /tmp/pi-gen/deploy/*.img.xz build/
+          sudo chmod 644 build/*.img.xz
 
       - name: Import GPG signing key
         env:
@@ -84,7 +80,5 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            build/pivideo_*.deb
-            /tmp/pi-gen/deploy/*.img.xz
+          files: build/*
           generate_release_notes: true
