@@ -3,6 +3,8 @@ Unattended-Upgrade::Origins-Pattern {
     "origin=Debian,codename=${distro_codename},label=Debian-Security";
     "origin=Raspbian,codename=${distro_codename},label=Raspbian";
     "origin=Raspberry Pi Foundation,codename=${distro_codename},label=Raspberry Pi Foundation";
+    // PiVideo daemon and web server updates
+    "origin=PiVideo,label=PiVideo";
 };
 
 Unattended-Upgrade::Package-Blacklist {

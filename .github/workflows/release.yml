@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+
+      - name: Build daemon (aarch64)
+        run: cd daemon && cargo build --release --target aarch64-unknown-linux-gnu
+
+      - name: Install packaging tools
+        run: sudo apt-get install -y dpkg-dev reprepro
+
+      - name: Build .deb
+        run: make deb
+
+      - name: Import GPG signing key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+      - name: Publish to apt repo on gh-pages
+        run: |
+          git config user.email "github-actions@github.com"
+          git config user.name "GitHub Actions"
+
+          if git ls-remote --exit-code origin gh-pages; then
+            git worktree add /tmp/apt-repo gh-pages
+          else
+            git worktree add --orphan -b gh-pages /tmp/apt-repo
+            touch /tmp/apt-repo/.nojekyll
+          fi
+
+          mkdir -p /tmp/apt-repo/conf
+          cp reprepro/conf/distributions /tmp/apt-repo/conf/distributions
+
+          reprepro -b /tmp/apt-repo includedeb bookworm build/pivideo_*.deb
+
+          cd /tmp/apt-repo
+          git add -A
+          git commit -m "Release ${GITHUB_REF_NAME}" || echo "Nothing to commit"
+          git push origin gh-pages
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/pivideo_*.deb
+          generate_release_notes: true

@@ -1,0 +1,1 @@
+deb [signed-by=/etc/apt/trusted.gpg.d/pivideo.asc] https://cd34.github.io/PiVideo bookworm main

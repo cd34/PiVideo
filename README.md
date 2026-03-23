@@ -197,11 +197,47 @@ web/          Python web UI for uploading and managing videos
 ```bash
 make build    # compile daemon (local, for development)
 make test     # run tests
-make image    # cross-compile for Pi and assemble rootfs overlay
+make deb      # build pivideo_VERSION_arm64.deb (requires aarch64 binary + dpkg-dev)
+make image    # cross-compile, build .deb, and assemble rootfs overlay
 make clean    # clean build artifacts
 ```
 
-`make image` cross-compiles the daemon, copies the web server, generates a default `config.json`, and assembles `image/rootfs-overlay/`. Pass the result to `pi-gen` to produce a bootable `.img`.
+`make image` cross-compiles the daemon, builds the `.deb`, copies the web server, generates a default `config.json`, and assembles `image/rootfs-overlay/`. Pass the result to `pi-gen` to produce a bootable `.img`.
+
+### Releasing updates to deployed kiosks
+
+PiVideo uses a self-hosted apt repository on GitHub Pages so deployed kiosks receive daemon and web server updates automatically via `unattended-upgrades` — no reflashing required.
+
+**One-time setup (do this before your first release):**
+
+1. Generate a GPG signing key:
+   ```bash
+   bash scripts/gen-signing-key.sh
+   ```
+2. Follow the printed instructions:
+   - Store the private key in GitHub repo **Settings → Secrets → Actions** as `GPG_PRIVATE_KEY`
+   - The public key is written to `image/rootfs-overlay/etc/apt/trusted.gpg.d/pivideo.asc` — commit it
+   - Copy the fingerprint into `reprepro/conf/distributions`, replacing `FILL_IN_KEY_FINGERPRINT`
+3. Commit and push:
+   ```bash
+   git add image/rootfs-overlay/etc/apt/trusted.gpg.d/pivideo.asc reprepro/conf/distributions
+   git commit -m "Add apt signing key and repo config"
+   git push
+   ```
+4. In GitHub repo **Settings → Pages**, set the source to the `gh-pages` branch.
+
+**To publish a release:**
+
+```bash
+# Bump the version
+echo "1.1.0" > VERSION
+git add VERSION
+git commit -m "Release v1.1.0"
+git tag v1.1.0
+git push && git push --tags
+```
+
+GitHub Actions builds the `.deb`, signs it, publishes it to the `gh-pages` apt repo, and creates a GitHub Release. Deployed kiosks pick it up on their next nightly `unattended-upgrades` run. The postinst script restarts both services automatically.
 
 For local testing without Pi Imager, bake in deployment settings:
 
@@ -307,13 +343,13 @@ Available from [raspberrypi.com](https://www.raspberrypi.com/products/) and auth
 | Pi 3 Model B | [Adafruit](https://www.adafruit.com/product/3055) | — |
 | Pi 3 Model B+ | [Adafruit](https://www.adafruit.com/product/3775) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-3-b.html) |
 | Pi 4 Model B (1 GB) | [Adafruit](https://www.adafruit.com/product/4295) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-4-model-b-1gb.html) |
-| Pi 4 Model B (2 GB) | [Adafruit](https://www.adafruit.com/product/4292) | — |
-| Pi 4 Model B (4 GB) | [Adafruit](https://www.adafruit.com/product/4296) | — |
-| Pi 4 Model B (8 GB) | [Adafruit](https://www.adafruit.com/product/4564) | — |
+| Pi 4 Model B (2 GB) | [Adafruit](https://www.adafruit.com/product/4292) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-4-model-b-2-gb.html) |
+| Pi 4 Model B (4 GB) | [Adafruit](https://www.adafruit.com/product/4296) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-4-model-b-4-gb.html) |
+| Pi 4 Model B (8 GB) | [Adafruit](https://www.adafruit.com/product/4564) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-4-model-b-8-gb.html) |
 | Pi 5 (2GB) | [Adafruit](https://www.adafruit.com/product/6007) | — |
 | Pi 5 (4GB) | [Adafruit](https://www.adafruit.com/product/5813) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-5-4gb.html) |
 | Pi 5 (8GB) | [Adafruit](https://www.adafruit.com/product/5812) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-5-8gb.html) |
-| Pi 5 (16GB) | [Adafruit](https://www.adafruit.com/product/6125) | — |
+| Pi 5 (16GB) | [Adafruit](https://www.adafruit.com/product/6125) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-5-16gb.html) |
 
 ### Power Supply
 

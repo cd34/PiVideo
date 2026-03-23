@@ -1,6 +1,8 @@
 daemon/target/
 *.img
 *.zip
+build/
+image/rootfs-overlay/opt/pivideo/*.deb
 
 # Local web server runtime files
 web/config.json

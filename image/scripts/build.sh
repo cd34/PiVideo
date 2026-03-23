@@ -6,6 +6,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 OVERLAY="$REPO_ROOT/image/rootfs-overlay"
 CONFIG="$REPO_ROOT/image/config.env"
 DAEMON_BIN="$REPO_ROOT/daemon/target/aarch64-unknown-linux-gnu/release/pivideo-daemon"
+DEB_PATH="$(ls "$REPO_ROOT"/build/pivideo_*.deb 2>/dev/null | head -1)"
 
 # ── Optional config (for local dev / CI only) ─────────────────────────────
 # For distribution builds, leave config.env absent. Pi Imager will ask the
@@ -35,6 +36,24 @@ echo "==> Installing web UI..."
 mkdir -p "$OVERLAY/opt/pivideo/web"
 cp "$REPO_ROOT/web/server.py" "$OVERLAY/opt/pivideo/web/server.py"
 
+# ── .deb for apt-managed updates ───────────────────────────────────────────
+# The firstrun script installs this on first boot, registering the files with
+# dpkg so that unattended-upgrades can manage future updates via the apt repo.
+if [[ -n "$DEB_PATH" ]]; then
+  echo "==> Copying PiVideo package for firstrun registration..."
+  cp "$DEB_PATH" "$OVERLAY/opt/pivideo/"
+else
+  echo "!!! WARNING: no .deb found in build/ — PiVideo updates via apt will not work"
+  echo "    Run 'make deb' before 'make image'"
+fi
+
+# ── APT signing key ────────────────────────────────────────────────────────
+APT_KEY="$REPO_ROOT/image/rootfs-overlay/etc/apt/trusted.gpg.d/pivideo.asc"
+if [[ ! -f "$APT_KEY" ]]; then
+  echo "!!! WARNING: apt signing key not found at image/rootfs-overlay/etc/apt/trusted.gpg.d/pivideo.asc"
+  echo "    Run scripts/gen-signing-key.sh to generate it"
+fi
+
 # ── Default config.json ────────────────────────────────────────────────────
 echo "==> Writing default config.json..."
 mkdir -p "$OVERLAY/opt/pivideo/videos"
@@ -61,6 +80,15 @@ cat > "$OVERLAY/usr/local/bin/pivideo-firstrun.sh" <<'FIRSTRUN_HEADER'
 #!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
+
+# Register PiVideo with dpkg so unattended-upgrades can manage future updates.
+# The .deb contains the same files already in place from the image overlay —
+# this just tells dpkg about them so apt can upgrade the package going forward.
+if ls /opt/pivideo/pivideo_*.deb &>/dev/null; then
+  echo "==> Registering PiVideo package with dpkg..."
+  dpkg -i /opt/pivideo/pivideo_*.deb
+  rm -f /opt/pivideo/pivideo_*.deb
+fi
 
 echo "==> PiVideo first-run: updating system..."
 apt-get update -qq

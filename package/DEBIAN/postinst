@@ -1,0 +1,4 @@
+#!/bin/bash
+set -e
+systemctl daemon-reload
+systemctl restart pivideo.service pivideo-web.service 2>/dev/null || true

@@ -1,0 +1,7 @@
+#!/bin/bash
+set -e
+case "$1" in
+  remove|upgrade|deconfigure)
+    systemctl stop pivideo.service pivideo-web.service 2>/dev/null || true
+    ;;
+esac
