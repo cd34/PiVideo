@@ -1,0 +1,12 @@
+[Unit]
+Description=PiVideo First-Run Setup
+After=network.target
+ConditionPathExists=/usr/local/bin/pivideo-firstrun.sh
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pivideo-firstrun.sh
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target

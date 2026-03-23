@@ -1,0 +1,16 @@
+[Unit]
+Description=PiVideo GPIO Button Daemon
+After=multi-user.target
+
+[Service]
+ExecStart=/usr/local/bin/pivideo-daemon
+Restart=on-failure
+RestartSec=5
+Environment=RUST_LOG=info
+Environment=PIVIDEO_CONFIG=/opt/pivideo/config.json
+Environment=PIVIDEO_VIDEO_DIR=/opt/pivideo/videos
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,25 @@
+Unattended-Upgrade::Origins-Pattern {
+    // Debian and Raspbian security updates
+    "origin=Debian,codename=${distro_codename},label=Debian-Security";
+    "origin=Raspbian,codename=${distro_codename},label=Raspbian";
+    "origin=Raspberry Pi Foundation,codename=${distro_codename},label=Raspberry Pi Foundation";
+};
+
+Unattended-Upgrade::Package-Blacklist {
+    // Never auto-upgrade these — would break video playback or GPIO
+    "mpv";
+    "libraspberrypi*";
+    "raspberrypi-kernel*";
+};
+
+// Fix interrupted dpkg runs automatically
+Unattended-Upgrade::AutoFixInterruptedDpkg "true";
+
+// Apply updates in smaller steps to reduce risk of partial failure
+Unattended-Upgrade::MinimalSteps "true";
+
+// Don't remove unused deps automatically — too risky for a kiosk
+Unattended-Upgrade::Remove-Unused-Dependencies "false";
+
+// Don't reboot automatically — operator should decide when to reboot
+Unattended-Upgrade::Automatic-Reboot "false";

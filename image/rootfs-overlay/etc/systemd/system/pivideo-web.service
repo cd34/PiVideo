@@ -1,0 +1,16 @@
+[Unit]
+Description=PiVideo Web UI
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/pivideo/web/server.py
+Restart=on-failure
+RestartSec=5
+Environment=VIDEO_DIR=/opt/pivideo/videos
+Environment=CONFIG_PATH=/opt/pivideo/config.json
+Environment=PORT=8080
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,5 @@
+# Packages to install in the Pi image
+mpv
+python3
+avahi-daemon
+unattended-upgrades
