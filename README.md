@@ -4,6 +4,24 @@ A Raspberry Pi kiosk system that plays videos when physical buttons are pressed.
 
 Videos are managed through a browser-based interface: upload a file, assign it to a button, done. No renaming, no command line.
 
+### Modes
+
+| Mode | Setup | Behavior |
+|------|-------|----------|
+| **Splash image + buttons** | Upload an idle image; assign videos to buttons | A still image is displayed until a visitor presses a button, then the video plays fullscreen. Returns to the image when done. |
+| **Splash video + buttons** | Upload an idle video; assign videos to buttons | A looping video plays when idle. A button press immediately interrupts it and plays the assigned video. Returns to the looping video when done. |
+| **Single repeating video** | Upload an idle video; leave buttons empty | One video loops continuously — no buttons needed. |
+
+### Why PiVideo?
+
+- **Low cost, durable hardware.** A Raspberry Pi costs a fraction of a full computer and is easy to replace if damaged.
+- **No moving parts.** No fan, no spinning hard drive — nothing to wear out or fail in a dusty exhibit environment.
+- **Self-contained storage.** A 32 GB SD card holds roughly 8–30 hours of video content depending on resolution and bitrate — more than enough for a typical kiosk deployment.
+
+### Future
+
+A selector interface is planned to support more than 7 videos on the same hardware: a menu with up/down navigation and a play button would let visitors browse a larger library without needing additional GPIO pins.
+
 ---
 
 ## 1. Install
