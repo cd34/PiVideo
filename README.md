@@ -121,6 +121,25 @@ Keep a folder on your admin machine named after each Pi's hostname. This makes i
 
 A Rust daemon runs on the Pi and polls the GPIO pins every 10ms. When a button is pressed, it reads `config.json` to find the assigned video and plays it fullscreen using `mpv`. The web UI writes the same `config.json`, so reassignments are picked up immediately without restarting anything.
 
+### Idle screen
+
+When no button video is playing, the screen shows an idle splash. Two options, configured from the web UI:
+
+- **Idle video** — a video that loops continuously (takes priority over idle image)
+- **Idle image** — a still image displayed indefinitely (fallback if no idle video is set)
+
+If neither is configured, the screen goes black when idle.
+
+Supported idle image formats: `.jpg`, `.jpeg`, `.png`, `.webp`, `.bmp`, `.gif`
+
+### Button press behavior
+
+Pressing a button always interrupts whatever is currently on screen — whether that is the idle splash or a video from a different button — and immediately starts the assigned video. When the video finishes, the display returns to the idle splash.
+
+### Single-video loop
+
+To loop one video endlessly without any buttons: assign it as the **idle video** and leave all button slots empty.
+
 ### Repository layout
 
 ```
@@ -134,12 +153,14 @@ web/          Python web UI for uploading and managing videos
 **Daemon (`daemon/`)** — Rust binary that:
 - Reads GPIO pin assignments from `config.json` at startup
 - Polls pins every 10ms; plays the assigned video fullscreen via `mpv` on press
+- Any button press kills the current video (or idle splash) and starts the new one immediately
 - Waits for button release before resuming (debounce)
+- Shows idle splash (looping video or still image) when no button video is playing
 - Runs as a systemd service, starts on boot
 
 **Web UI (`web/`)** — Lightweight Python web server (no dependencies beyond stdlib) that:
-- Shows 7 button slots with current assignments
-- Accepts video uploads and writes assignments to `config.json`
+- Shows idle screen controls (idle video + idle image) and 7 button slots
+- Accepts video and image uploads and writes assignments to `config.json`
 - Displays a reboot notice when a system update requires one
 - Starts on boot via systemd, accessible at `http://<hostname>.local:8080`
 
@@ -179,6 +200,68 @@ make image
 ```bash
 RUST_LOG=info ./pivideo-daemon
 ```
+
+---
+
+## Appendix: Build Requirements
+
+Requirements for running `make build` and `make image` on your development machine.
+
+### macOS
+
+1. **Rust** — install via [rustup](https://rustup.rs/):
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   ```
+2. **aarch64 cross-compilation target:**
+   ```bash
+   rustup target add aarch64-unknown-linux-gnu
+   ```
+3. **Cross-compiler toolchain** — install via Homebrew:
+   ```bash
+   brew install aarch64-unknown-linux-gnu
+   ```
+   This provides the `aarch64-unknown-linux-gnu-gcc` linker that Cargo needs. You may also need to tell Cargo where to find it — add to `~/.cargo/config.toml`:
+   ```toml
+   [target.aarch64-unknown-linux-gnu]
+   linker = "aarch64-unknown-linux-gnu-gcc"
+   ```
+4. **Python 3** — ships with macOS; or install via `brew install python`.
+5. **`pi-gen`** — runs on Linux only. On macOS, run it inside Docker or a Linux VM to produce the final `.img`.
+
+### Linux
+
+1. **Rust** — install via [rustup](https://rustup.rs/):
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   ```
+2. **aarch64 cross-compilation target and toolchain** (Debian/Ubuntu):
+   ```bash
+   rustup target add aarch64-unknown-linux-gnu
+   sudo apt-get install gcc-aarch64-linux-gnu
+   ```
+   Add to `~/.cargo/config.toml`:
+   ```toml
+   [target.aarch64-unknown-linux-gnu]
+   linker = "aarch64-linux-gnu-gcc"
+   ```
+3. **`pi-gen` dependencies** (Debian/Ubuntu):
+   ```bash
+   sudo apt-get install coreutils quilt parted qemu-user-static debootstrap \
+     zerofree zip dosfstools libarchive-tools libcap2-bin grep rsync xz-utils \
+     file git curl bc
+   ```
+   See the [pi-gen README](https://github.com/RPi-Distro/pi-gen) for the current full list.
+4. **Python 3** — install via your distro package manager if not already present.
+
+### Windows
+
+Cross-compiling for aarch64 Linux and running `pi-gen` are not natively supported on Windows. Use one of these approaches:
+
+- **WSL 2 (recommended)** — install Ubuntu via the Microsoft Store, then follow the Linux instructions above inside the WSL environment.
+- **Docker** — the [pi-gen Docker workflow](https://github.com/RPi-Distro/pi-gen#running-in-docker) runs the full image build in a container. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and follow those instructions.
+
+For development without building an image (daemon compilation only), install Rust for Windows from [rustup.rs](https://rustup.rs/) and use WSL for the cross-compilation step.
 
 ---
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PiVideo web UI — manage video slots."""
+"""PiVideo web UI — manage video slots and idle splash."""
 
 import cgi
 import html
@@ -43,7 +43,10 @@ ALLOWED_EXTS = {
     ".flv", ".wmv", ".mpg", ".mpeg", ".ts", ".m2ts", ".3gp", ".m4v",
 }
 
-ACCEPT_ATTR = ",".join(sorted(ALLOWED_EXTS))
+ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif"}
+
+ACCEPT_VIDEO_ATTR = ",".join(sorted(ALLOWED_EXTS))
+ACCEPT_IMAGE_ATTR = ",".join(sorted(ALLOWED_IMAGE_EXTS))
 
 
 # ── Config I/O ─────────────────────────────────────────────────────────────
@@ -52,37 +55,58 @@ def _default_slot(info):
     return {"gpio": info["gpio"], "pin": info["pin"], "video": None}
 
 
-def load_config():
-    """Return {slot_int: {gpio, pin, video}} for all 7 slots."""
+def _load_raw():
+    """Return the full parsed config dict, or {} if missing/invalid."""
     if CONFIG_PATH.exists():
         try:
-            raw = json.loads(CONFIG_PATH.read_text())
-            config = {}
-            for slot_num, info in SLOTS.items():
-                entry = raw.get(str(slot_num), {})
-                if isinstance(entry, dict):
-                    config[slot_num] = {
-                        "gpio":  entry.get("gpio",  info["gpio"]),
-                        "pin":   entry.get("pin",   info["pin"]),
-                        "video": entry.get("video"),
-                    }
-                else:
-                    # migrate old string-value format
-                    config[slot_num] = {**_default_slot(info), "video": entry or None}
-            return config
+            return json.loads(CONFIG_PATH.read_text())
         except (json.JSONDecodeError, ValueError):
             pass
-    return {s: _default_slot(SLOTS[s]) for s in SLOTS}
+    return {}
+
+
+def _save_raw(raw):
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_PATH.write_text(json.dumps(raw, indent=2) + "\n")
+
+
+def load_config():
+    """Return {slot_int: {gpio, pin, video}} for all 7 slots."""
+    raw = _load_raw()
+    config = {}
+    for slot_num, info in SLOTS.items():
+        entry = raw.get(str(slot_num), {})
+        if isinstance(entry, dict):
+            config[slot_num] = {
+                "gpio":  entry.get("gpio",  info["gpio"]),
+                "pin":   entry.get("pin",   info["pin"]),
+                "video": entry.get("video"),
+            }
+        else:
+            # migrate old string-value format
+            config[slot_num] = {**_default_slot(info), "video": entry or None}
+    return config
 
 
 def save_config(config):
-    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG_PATH.write_text(
-        json.dumps(
-            {str(k): config[k] for k in sorted(config)},
-            indent=2,
-        ) + "\n"
-    )
+    raw = _load_raw()
+    for k in sorted(config):
+        raw[str(k)] = config[k]
+    _save_raw(raw)
+
+
+def load_splash():
+    """Return {"image": str|None, "video": str|None}."""
+    s = _load_raw().get("splash", {})
+    if isinstance(s, dict):
+        return {"image": s.get("image"), "video": s.get("video")}
+    return {"image": None, "video": None}
+
+
+def save_splash(splash):
+    raw = _load_raw()
+    raw["splash"] = splash
+    _save_raw(raw)
 
 
 def needs_reboot():
@@ -91,9 +115,59 @@ def needs_reboot():
 
 # ── HTML rendering ─────────────────────────────────────────────────────────
 
+def _file_info_html(filename, label_for_missing="&#9888; file missing"):
+    """Return (size_html) for a file in VIDEO_DIR."""
+    if filename:
+        fpath = VIDEO_DIR / filename
+        if fpath.exists():
+            return f"{fpath.stat().st_size / (1024 * 1024):.1f} MB"
+        return label_for_missing
+    return ""
+
+
 def render_page(message="", error=""):
     config = load_config()
+    splash = load_splash()
 
+    # ── Splash section ─────────────────────────────────────────────────────
+    def splash_row(kind, current_file, accept_attr, allowed_exts, label):
+        if current_file:
+            size = _file_info_html(current_file)
+            current_html = f"""
+              <span class="fname">{html.escape(current_file)}</span>
+              <span class="fsize">{size}</span>
+              <form method="POST" action="/clear" style="display:inline">
+                <input type="hidden" name="splash" value="{kind}">
+                <button class="btn-clear"
+                  onclick="return confirm('Remove idle {label}?')">Clear</button>
+              </form>"""
+            upload_label = "Replace"
+        else:
+            current_html = f'<span class="empty">— none —</span>'
+            upload_label = "Upload"
+
+        return f"""
+      <div class="slot-body splash-row">
+        <div class="splash-kind">{label}</div>
+        <div class="current">{current_html}</div>
+        <form class="upload-row" method="POST" action="/upload" enctype="multipart/form-data">
+          <input type="hidden" name="splash" value="{kind}">
+          <input type="file" name="file" accept="{accept_attr}" required>
+          <button class="btn-upload">{upload_label}</button>
+        </form>
+      </div>"""
+
+    splash_html = f"""
+    <div class="slot splash-section">
+      <div class="slot-head">
+        <span class="slot-title">Idle Screen</span>
+        <span class="slot-meta">shown when no button video is playing</span>
+      </div>
+      {splash_row("video", splash.get("video"), ACCEPT_VIDEO_ATTR, ALLOWED_EXTS, "Idle video (loops)")}
+      {splash_row("image", splash.get("image"), ACCEPT_IMAGE_ATTR, ALLOWED_IMAGE_EXTS, "Idle image (fallback)")}
+    </div>"""
+
+    # ── Button slots ───────────────────────────────────────────────────────
     slots_html = ""
     for slot_num, info in SLOTS.items():
         slot_cfg = config.get(slot_num, {})
@@ -102,11 +176,7 @@ def render_page(message="", error=""):
         pin  = slot_cfg.get("pin",  info["pin"])
 
         if assigned:
-            fpath = VIDEO_DIR / assigned
-            if fpath.exists():
-                size = f"{fpath.stat().st_size / (1024 * 1024):.1f} MB"
-            else:
-                size = "&#9888; file missing"
+            size = _file_info_html(assigned)
             current_html = f"""
               <span class="fname">{html.escape(assigned)}</span>
               <span class="fsize">{size}</span>
@@ -130,7 +200,7 @@ def render_page(message="", error=""):
           <div class="current">{current_html}</div>
           <form class="upload-row" method="POST" action="/upload" enctype="multipart/form-data">
             <input type="hidden" name="slot" value="{slot_num}">
-            <input type="file" name="video" accept="{ACCEPT_ATTR}" required>
+            <input type="file" name="file" accept="{ACCEPT_VIDEO_ATTR}" required>
             <button class="btn-upload">{upload_label}</button>
           </form>
         </div>
@@ -168,12 +238,21 @@ def render_page(message="", error=""):
     button{{cursor:pointer;padding:.35rem .8rem;border:none;border-radius:4px;font-size:.85rem}}
     .btn-upload{{background:#2d6a4f;color:#fff}}
     .btn-clear{{background:#e5383b;color:#fff}}
+    .splash-section .slot-head{{background:#eef4fb}}
+    .splash-row{{border-top:1px solid #eee;display:grid;grid-template-columns:10rem 1fr auto;align-items:center;gap:.75rem;padding:.6rem 1rem}}
+    .splash-row:first-of-type{{border-top:none}}
+    .splash-kind{{font-size:.85rem;color:#555}}
+    .splash-row .upload-row{{justify-content:flex-end}}
+    h2{{font-size:1rem;color:#555;margin:1.25rem 0 .5rem;text-transform:uppercase;letter-spacing:.05em}}
   </style>
 </head>
 <body>
   <h1>PiVideo</h1>
-  <p class="sub">Assign videos to buttons. Preferred format: <strong>.mp4</strong>. Also accepted: {html.escape(", ".join(sorted(ALLOWED_EXTS - {".mp4"})))}</p>
+  <p class="sub">Assign videos to buttons. Preferred format: <strong>.mp4</strong>. Also accepted: {html.escape(", ".join(sorted(ALLOWED_EXTS - {{".mp4"}})))}</p>
   {reboot_html}{msg_html}{err_html}
+  <h2>Idle Screen</h2>
+  {splash_html}
+  <h2>Buttons</h2>
   {slots_html}
 </body>
 </html>"""
@@ -225,6 +304,14 @@ class Handler(BaseHTTPRequestHandler):
                      "CONTENT_LENGTH": str(length)},
         )
 
+        splash_kind = form.getvalue("splash")  # "image" | "video" | None
+
+        if splash_kind in ("image", "video"):
+            self._upload_splash(form, splash_kind)
+        else:
+            self._upload_slot(form)
+
+    def _upload_slot(self, form):
         try:
             slot = int(form.getvalue("slot", 0))
         except (ValueError, TypeError):
@@ -233,7 +320,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_html(render_page(error="Invalid slot."), 400)
             return
 
-        field = form.get("video")
+        field = form.get("file")
         if not field or not field.filename:
             self.send_html(render_page(error="No file selected."), 400)
             return
@@ -256,10 +343,52 @@ class Handler(BaseHTTPRequestHandler):
         save_config(config)
         self.redirect()
 
+    def _upload_splash(self, form, kind):
+        field = form.get("file")
+        if not field or not field.filename:
+            self.send_html(render_page(error="No file selected."), 400)
+            return
+
+        filename = os.path.basename(field.filename)
+        ext = os.path.splitext(filename)[1].lower()
+
+        if kind == "image":
+            if ext not in ALLOWED_IMAGE_EXTS:
+                self.send_html(
+                    render_page(error=f"Unsupported image format '{ext}'. Allowed: {', '.join(sorted(ALLOWED_IMAGE_EXTS))}"),
+                    400,
+                )
+                return
+        else:  # video
+            if ext not in ALLOWED_EXTS:
+                self.send_html(
+                    render_page(error=f"Unsupported format '{ext}'. Allowed: {', '.join(sorted(ALLOWED_EXTS))}"),
+                    400,
+                )
+                return
+
+        VIDEO_DIR.mkdir(parents=True, exist_ok=True)
+        with open(VIDEO_DIR / filename, "wb") as f:
+            shutil.copyfileobj(field.file, f)
+
+        splash = load_splash()
+        splash[kind] = filename
+        save_splash(splash)
+        self.redirect()
+
     def _handle_clear(self):
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length).decode()
         params = dict(p.split("=", 1) for p in body.split("&") if "=" in p)
+
+        splash_kind = params.get("splash")
+
+        if splash_kind in ("image", "video"):
+            splash = load_splash()
+            splash[splash_kind] = None
+            save_splash(splash)
+            self.redirect()
+            return
 
         try:
             slot = int(params.get("slot", 0))
@@ -280,7 +409,7 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     VIDEO_DIR.mkdir(parents=True, exist_ok=True)
     if not CONFIG_PATH.exists():
-        save_config({s: None for s in SLOTS})
+        save_config({s: _default_slot(SLOTS[s]) for s in SLOTS})
 
     server = HTTPServer(("", PORT), Handler)
     print(f"PiVideo  http://0.0.0.0:{PORT}")

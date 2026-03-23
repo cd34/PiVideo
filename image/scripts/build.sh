@@ -46,7 +46,8 @@ cat > "$OVERLAY/opt/pivideo/config.json" <<'CONFIGEOF'
   "4": {"gpio": 23, "pin": 16, "video": null},
   "5": {"gpio": 24, "pin": 18, "video": null},
   "6": {"gpio": 25, "pin": 22, "video": null},
-  "7": {"gpio": 27, "pin": 13, "video": null}
+  "7": {"gpio": 27, "pin": 13, "video": null},
+  "splash": {"image": null, "video": null}
 }
 CONFIGEOF
 
