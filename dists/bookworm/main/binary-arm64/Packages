@@ -6,10 +6,10 @@ Depends: mpv, python3
 Priority: optional
 Section: misc
 Filename: pool/main/p/pivideo/pivideo_1.0.0_arm64.deb
-Size: 561312
-SHA256: 710cd4ac5dc0daf5438ce46f8975ef30677579552f1065961f0bc2deb72bf7e0
-SHA1: f22d0a09427b240f3d6309e55fc47cdb6e1768b8
-MD5sum: 97f5ee77eff279cc30433aa3d5497ab9
+Size: 561306
+SHA256: 6b16061594242210534c03139217c1e9156ed8425dbebebabbd83a0b17086c27
+SHA1: 02852802e148c3f3d7d952e3cd16d2ae74881fba
+MD5sum: f676372d6a4772d52ad84cf642191f2c
 Description: Raspberry Pi video kiosk daemon and web UI
  GPIO-triggered video kiosk for museums and visitor centers.
  Press a button, watch a video. Manage content from a browser.
