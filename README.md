@@ -266,9 +266,10 @@ Slip directly onto the spade terminals of arcade buttons — no crimping or sold
 
 ### Ground Bus
 
-All button ground wires meet at a ground bus, then a single wire runs from the bus to a GND terminal on the HAT. A small terminal block strip works well — any 6–10 position barrier strip.
+All button ground wires meet at a ground bus, then a single wire runs from the bus to a GND terminal on the HAT.
 
-- Search: *"barrier strip terminal block"*
+- [Square D 9-Terminal Ground Bar Kit (Home Depot)](https://www.homedepot.com/p/Square-D-9-Terminal-Ground-Bar-Kit-for-QO-Homeline-Electrical-Panel-Load-Center-PK9GTACP/100161420) — solid, screw-terminal ground bar; more than enough for 7 buttons
+- Search: *"barrier strip terminal block"* for smaller alternatives
 
 ### Ferrules + Crimper (optional but recommended)
 
