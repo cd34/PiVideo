@@ -32,6 +32,27 @@ jobs:
       - name: Build .deb
         run: make deb
 
+      - name: Prepare rootfs overlay
+        run: bash image/scripts/build.sh
+
+      - name: Build SD card image
+        run: |
+          sudo apt-get install -y coreutils quilt parted qemu-user-static debootstrap \
+            zerofree zip dosfstools libarchive-tools libcap2-bin rsync xz-utils \
+            file curl bc pigz xxd
+          git clone --depth 1 https://github.com/RPi-Distro/pi-gen.git /tmp/pi-gen
+          for stage in stage0 stage1 stage2; do touch /tmp/pi-gen/$stage/SKIP_IMAGES; done
+          for stage in stage3 stage4 stage5; do touch /tmp/pi-gen/$stage/SKIP; done
+          ln -sf "$GITHUB_WORKSPACE/image/stage-pivideo" /tmp/pi-gen/stage-pivideo
+          cat > /tmp/pi-gen/config <<'EOF'
+          IMG_NAME="pivideo"
+          RELEASE="bookworm"
+          DEPLOY_COMPRESSION=xz
+          ENABLE_SSH=1
+          STAGE_LIST="stage0 stage1 stage2 stage-pivideo"
+          EOF
+          cd /tmp/pi-gen && sudo bash build.sh
+
       - name: Import GPG signing key
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -62,5 +83,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/pivideo_*.deb
+          files: |
+            build/pivideo_*.deb
+            /tmp/pi-gen/deploy/*.img.xz
           generate_release_notes: true
