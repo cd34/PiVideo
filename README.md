@@ -272,7 +272,7 @@ Everything needed to build a working 3-button kiosk. Assumes a Pi 4 Model B — 
 | GPIO Screw Terminal HAT | 1 | |
 | 16mm metal pushbutton | 3 | Any color; LED ring optional |
 | Spade connector wire 3ft female (2-pack) | 3 | 6 wires needed — 1 signal + 1 GND per button |
-| 22 AWG stranded hookup wire | 1 spool | Two colors recommended (signal / GND) |
+| 22 AWG stranded hookup wire | 1 spool | Two colors recommended. Cut short lengths for: HAT GND terminal → ground bus, and HAT 3.3V terminal → power bus (if using LEDs). |
 | Ground bus / terminal strip | 1 | For shared GND; add a second if using LEDs |
 
 **If using the LED ring on the buttons, also add:**
