@@ -73,6 +73,7 @@ jobs:
           mkdir -p /tmp/apt-repo/conf
           cp reprepro/conf/distributions /tmp/apt-repo/conf/distributions
 
+          reprepro -b /tmp/apt-repo remove bookworm pivideo || true
           reprepro -b /tmp/apt-repo includedeb bookworm build/pivideo_*.deb
 
           cd /tmp/apt-repo
