@@ -6,7 +6,7 @@
 
   <!-- Title -->
   <text x="500" y="26" text-anchor="middle" font-size="17" font-weight="bold" fill="#2d3436">PiVideo — Wiring with LED Illumination (Advanced)</text>
-  <text x="500" y="43" text-anchor="middle" font-size="10" fill="#636e72">LED wiring is optional — buttons work without it. LED circuit: 3.3V (Pin 1 or 17) → LED+ · LED− → GND. LEDs are always on. No software changes required.</text>
+  <text x="500" y="43" text-anchor="middle" font-size="10" fill="#636e72">LED wiring is optional — buttons work without it. LED circuit: 3.3V terminal strip → LED+ · LED− → GND terminal strip. LEDs are always on. No software changes required.</text>
   <text x="500" y="57" text-anchor="middle" font-size="10" fill="#636e72">Note: the 150 Ω resistors are only needed for LED switches WITHOUT a built-in resistor. The Sparkfun and Adafruit metal pushbuttons in the README have one built in — omit the resistors for those.</text>
 
   <!-- ══════════════════════════════════════════════════════════ -->
@@ -251,14 +251,15 @@
   <!-- 3.3V Bus  x=920, y=75–668 (solid red)                     -->
   <!-- ══════════════════════════════════════════════════════════ -->
 
-  <!-- 3.3V power symbol (upward arrow) and label -->
-  <polygon points="920,67 913,80 927,80" fill="#e74c3c"/>
-  <text x="920" y="93" text-anchor="middle" font-size="10" font-weight="bold" fill="#e74c3c">3.3V</text>
-  <text x="920" y="106" text-anchor="middle" font-size="8" fill="#e74c3c">(Pin 1 or 17)</text>
-  <line x1="920" y1="108" x2="920" y2="120" stroke="#e74c3c" stroke-width="1.5"/>
+  <!-- 3.3V bus label — terminal strip, same type as GND bus -->
+  <text x="920" y="83" text-anchor="middle" font-size="10" font-weight="bold" fill="#e74c3c">3.3V</text>
+  <text x="920" y="95" text-anchor="middle" font-size="8" fill="#e74c3c">terminal strip</text>
+  <text x="920" y="107" text-anchor="middle" font-size="8" fill="#e74c3c">(one wire to</text>
+  <text x="920" y="117" text-anchor="middle" font-size="8" fill="#e74c3c">Pin 1 or 17)</text>
+  <line x1="920" y1="119" x2="920" y2="127" stroke="#e74c3c" stroke-width="1.5"/>
 
   <!-- Vertical 3.3V bus -->
-  <line x1="920" y1="120" x2="920" y2="668" stroke="#e74c3c" stroke-width="2.5"/>
+  <line x1="920" y1="127" x2="920" y2="668" stroke="#e74c3c" stroke-width="2.5"/>
 
   <!-- ══════════════════════════════════════════════════════════ -->
   <!-- LED+ wires: button right (x=640, y=center+17)             -->

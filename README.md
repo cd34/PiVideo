@@ -73,6 +73,8 @@ See [wiring.svg](wiring.svg) for the full diagram. For optional LED illumination
 
 All buttons share a common ground. Connect the ground side of each button to a ground bus (terminal block strip), then run a single wire from the bus to any GND terminal on the HAT (pins 6, 9, 14, 20, 25…).
 
+If you are using illuminated buttons, use a second terminal strip as a 3.3V power bus — run one wire from Pi Pin 1 or Pin 17 (3.3V) to the strip, then a short wire from the strip to each button's LED+ terminal. This keeps wiring tidy and avoids running seven individual wires back to the Pi.
+
 ### Using the GPIO Screw Terminal HAT
 
 The GPIO Screw Terminal HAT plugs directly onto the Pi's 40-pin header. Each GPIO pin becomes a labeled screw terminal — no soldering required.
