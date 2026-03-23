@@ -4,4 +4,4 @@ Codename: bookworm
 Architectures: arm64
 Components: main
 Description: PiVideo kiosk software
-SignWith: FILL_IN_KEY_FINGERPRINT
+SignWith: E02FC51ED94FD7A206C87472EAB181BEF9C3E645
