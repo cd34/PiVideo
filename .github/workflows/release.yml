@@ -37,17 +37,33 @@ jobs:
 
       - name: Build SD card image
         run: |
-          sudo apt-get install -y coreutils quilt parted qemu-user-static debootstrap \
-            zerofree zip dosfstools libarchive-tools libcap2-bin rsync xz-utils \
-            file curl bc pigz xxd arch-test
-          git clone --depth 1 https://github.com/RPi-Distro/pi-gen.git /tmp/pi-gen
-          for stage in stage0 stage1 stage2; do touch /tmp/pi-gen/$stage/SKIP_IMAGES; done
-          for stage in stage3 stage4 stage5; do touch /tmp/pi-gen/$stage/SKIP; done
-          ln -sf "$GITHUB_WORKSPACE/image/stage-pivideo" /tmp/pi-gen/stage-pivideo
-          printf 'IMG_NAME="pivideo"\nRELEASE="bookworm"\nDEPLOY_COMPRESSION=xz\nENABLE_SSH=1\nARCH=arm64\nSTAGE_LIST="stage0 stage1 stage2 stage-pivideo"\n' > /tmp/pi-gen/config
-          cd /tmp/pi-gen && sudo bash build.sh
-          sudo cp /tmp/pi-gen/deploy/*.img.xz build/
-          sudo chmod 644 build/*.img.xz
+          VERSION="$(cat VERSION)"
+
+          # Download official Raspberry Pi OS Lite (arm64, Bookworm)
+          echo "==> Downloading Raspberry Pi OS Lite arm64..."
+          curl -L "https://downloads.raspberrypi.com/raspios_lite_arm64_latest" -o base.img.xz
+          xz -d base.img.xz
+
+          # Mount the root partition
+          LOOP=$(sudo losetup -fP --show base.img)
+          echo "Loop device: $LOOP"
+          lsblk "$LOOP"
+          mkdir -p /tmp/mnt
+          sudo mount "${LOOP}p2" /tmp/mnt
+
+          # Inject PiVideo overlay
+          echo "==> Installing PiVideo overlay..."
+          sudo rsync -a image/rootfs-overlay/ /tmp/mnt/
+          sudo chmod 755 /tmp/mnt/usr/local/bin/pivideo-daemon
+          sudo chmod 700 /tmp/mnt/usr/local/bin/pivideo-firstrun.sh
+
+          # Unmount and compress
+          sudo umount /tmp/mnt
+          sudo losetup -d "$LOOP"
+          echo "==> Compressing image..."
+          xz -T0 base.img
+          mv base.img.xz "build/pivideo_${VERSION}_arm64.img.xz"
+          echo "==> Done: build/pivideo_${VERSION}_arm64.img.xz"
 
       - name: Import GPG signing key
         env:
