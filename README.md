@@ -233,7 +233,7 @@ Match the cable to your Pi model.
 | Pi 3 Model B / B+ | Standard HDMI to HDMI | [Adafruit](https://www.adafruit.com/product/608) · [Sparkfun](https://www.sparkfun.com/raspberry-pi-official-hdmi-cable-1m.html) |
 | Pi 4 Model B | micro-HDMI to HDMI | [Adafruit](https://www.adafruit.com/product/1322) · [Sparkfun](https://www.sparkfun.com/raspberry-pi-official-micro-hdmi-to-hdmi-a-cable-2m.html) |
 | Pi 5 | micro-HDMI to HDMI | [Adafruit](https://www.adafruit.com/product/1322) · [Sparkfun](https://www.sparkfun.com/raspberry-pi-official-micro-hdmi-to-hdmi-a-cable-2m.html) |
-| Pi Zero 2 W | mini-HDMI to HDMI | [link TBD] |
+| Pi Zero 2 W | mini-HDMI to HDMI | [Adafruit](https://www.adafruit.com/product/2775) · [Sparkfun](https://www.sparkfun.com/mini-hdmi-cable-3ft.html) |
 
 ### GPIO Screw Terminal HAT
 
