@@ -3,7 +3,7 @@ DEB_STAGING := build/pivideo_$(VERSION)_arm64
 DEB_OUT     := build/pivideo_$(VERSION)_arm64.deb
 DAEMON_BIN  := daemon/target/aarch64-unknown-linux-gnu/release/pivideo-daemon
 
-.PHONY: build test build-cross deb image clean
+.PHONY: build test build-cross deb image pigen clean
 
 # Local development build (host architecture, for running tests)
 build:
@@ -35,6 +35,10 @@ deb: $(DAEMON_BIN)
 # Cross-compile, build .deb, and assemble the SD card image overlay
 image: build-cross deb
 	bash image/scripts/build.sh
+
+# Run pi-gen to produce the final .img.xz (requires pi-gen cloned at ~/pi-gen)
+pigen: image
+	bash image/scripts/run-pigen.sh
 
 clean:
 	cd daemon && cargo clean
