@@ -57,12 +57,29 @@ jobs:
           sudo chmod 755 /tmp/mnt/usr/local/bin/pivideo-daemon
           sudo chmod 700 /tmp/mnt/usr/local/bin/pivideo-firstrun.sh
 
-          # Unmount and compress
+          # Unmount
           sudo umount /tmp/mnt
           sudo losetup -d "$LOOP"
+
+          # Capture uncompressed size and hash before compressing
+          EXTRACT_SIZE=$(stat -c%s base.img)
+          EXTRACT_SHA256=$(sha256sum base.img | cut -d' ' -f1)
+
+          # Compress
           echo "==> Compressing image..."
           xz -T0 base.img
           mv base.img.xz "build/pivideo_${VERSION}_arm64.img.xz"
+
+          # Capture compressed size and hash
+          DOWNLOAD_SIZE=$(stat -c%s "build/pivideo_${VERSION}_arm64.img.xz")
+          DOWNLOAD_SHA256=$(sha256sum "build/pivideo_${VERSION}_arm64.img.xz" | cut -d' ' -f1)
+
+          # Save for later steps
+          echo "IMG_VERSION=$VERSION"             >> $GITHUB_ENV
+          echo "IMG_EXTRACT_SIZE=$EXTRACT_SIZE"   >> $GITHUB_ENV
+          echo "IMG_EXTRACT_SHA256=$EXTRACT_SHA256" >> $GITHUB_ENV
+          echo "IMG_DOWNLOAD_SIZE=$DOWNLOAD_SIZE" >> $GITHUB_ENV
+          echo "IMG_DOWNLOAD_SHA256=$DOWNLOAD_SHA256" >> $GITHUB_ENV
           echo "==> Done: build/pivideo_${VERSION}_arm64.img.xz"
 
       - name: Import GPG signing key
@@ -87,6 +104,25 @@ jobs:
 
           reprepro -b /tmp/apt-repo remove bookworm pivideo || true
           reprepro -b /tmp/apt-repo includedeb bookworm build/pivideo_*.deb
+
+          IMAGE_URL="https://github.com/cd34/PiVideo/releases/download/${GITHUB_REF_NAME}/pivideo_${IMG_VERSION}_arm64.img.xz"
+          RELEASE_DATE=$(date -u +%Y-%m-%d)
+          IMAGE_URL="$IMAGE_URL" RELEASE_DATE="$RELEASE_DATE" python3 -c "
+import json, os
+print(json.dumps({
+  'os_list': [{
+    'name': 'PiVideo',
+    'description': 'GPIO-triggered video kiosk for museums and visitor centers. Press a button, watch a video.',
+    'url': os.environ['IMAGE_URL'],
+    'extract_size': int(os.environ['IMG_EXTRACT_SIZE']),
+    'extract_sha256': os.environ['IMG_EXTRACT_SHA256'],
+    'image_download_size': int(os.environ['IMG_DOWNLOAD_SIZE']),
+    'image_download_sha256': os.environ['IMG_DOWNLOAD_SHA256'],
+    'release_date': os.environ['RELEASE_DATE'],
+    'os_customisation_supported': True
+  }]
+}, indent=2))
+" > /tmp/apt-repo/os_list.json
 
           cd /tmp/apt-repo
           git add -A
