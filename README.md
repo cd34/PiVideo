@@ -235,11 +235,12 @@ Match the cable to your Pi model.
 | Pi 5 | micro-HDMI to HDMI | [Adafruit](https://www.adafruit.com/product/1322) · [Sparkfun](https://www.sparkfun.com/raspberry-pi-official-micro-hdmi-to-hdmi-a-cable-2m.html) |
 | Pi Zero 2 W | mini-HDMI to HDMI | [link TBD] |
 
-### GPIO Screw Terminal HAT — Pi-EzConnect
+### GPIO Screw Terminal HAT
 
 Plugs onto the Pi's 40-pin header; every pin becomes a labeled screw terminal. No soldering required.
 
 - [Adafruit — Pi-EzConnect Terminal Block Breakout HAT](https://www.adafruit.com/product/2711)
+- [CZH Labs — Ultra Small RPi GPIO Terminal Block Breakout Board](https://czh-labs.com/products/ultra-small-rpi-gpio-terminal-block-breakout-board-module-for-raspberry-pi)
 
 ### Momentary Push Buttons (non-illuminated)
 
