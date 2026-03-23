@@ -59,7 +59,7 @@ Insert the SD card, power on the Pi, and wait about 2 minutes. First boot runs a
 
 Connect momentary push buttons between each GPIO pin and any GND pin. The software uses internal pull-up resistors — no external resistors or other components are needed.
 
-See [wiring.svg](wiring.svg) for the full diagram.
+See [wiring.svg](wiring.svg) for the full diagram. For optional LED illumination on the buttons, see [wiring-led.svg](wiring-led.svg).
 
 | Button | GPIO | Physical Pin |
 |--------|------|-------------|
@@ -379,12 +379,24 @@ Plugs onto the Pi's 40-pin header; every pin becomes a labeled screw terminal. N
 - [Adafruit — Pi-EzConnect Terminal Block Breakout HAT](https://www.adafruit.com/product/2711)
 - [CZH Labs — Ultra Small RPi GPIO Terminal Block Breakout Board](https://czh-labs.com/products/ultra-small-rpi-gpio-terminal-block-breakout-board-module-for-raspberry-pi)
 
-### Momentary Push Buttons (non-illuminated)
+### Momentary Push Buttons
 
-One per video slot, up to 7. Use normally-open momentary buttons without LEDs — simpler wiring, no resistors needed.
+One per video slot, up to 7. Any normally-open momentary contact switch works. Three common options:
 
-- Adafruit — [link TBD]
+**Metal pushbuttons with LED ring (recommended)** — chrome-plated, 16mm panel-mount, rated for heavy use. The built-in LED is optional; the switch works without it. See [wiring-led.svg](wiring-led.svg) for LED wiring details (requires a 150 Ω resistor per button and a 3.3V connection — no software changes needed, LEDs are always on).
+
+| Color | Adafruit | Sparkfun |
+|-------|----------|----------|
+| Red | [Adafruit](https://www.adafruit.com/product/559) | [Sparkfun](https://www.sparkfun.com/metal-pushbutton-momentary-16mm-red-1.html) |
+| Blue | [Adafruit](https://www.adafruit.com/product/481) | [Sparkfun](https://www.sparkfun.com/metal-pushbutton-momentary-16mm-blue-1.html) |
+| Green | [Adafruit](https://www.adafruit.com/product/560) | [Sparkfun](https://www.sparkfun.com/metal-pushbutton-momentary-16mm-green-1.html) |
+| White | [Adafruit](https://www.adafruit.com/product/558) | [Sparkfun](https://www.sparkfun.com/metal-pushbutton-momentary-16mm-white-1.html) |
+| Yellow | — | [Sparkfun](https://www.sparkfun.com/metal-pushbutton-momentary-16mm-yellow-1.html) |
+
+**Arcade-style buttons** — large, colorful, satisfying click. Popular for kiosks. No LED, no resistors, simple two-wire connection.
 - Search: *"arcade button 30mm momentary non-illuminated"*
+
+**Any momentary switch** — any normally-open momentary contact switch works. If it has two terminals and closes a circuit when pressed, it will work.
 
 ### Arcade Button Quick-Connect Wires — 0.25" (6.3mm)
 
