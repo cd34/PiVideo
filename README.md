@@ -286,9 +286,12 @@ Available from [raspberrypi.com](https://www.raspberrypi.com/products/) and auth
 
 | Model | Adafruit | Sparkfun |
 |-------|----------|----------|
-| Pi 3 Model B | [Adafruit](https://www.adafruit.com/product/3055) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-3-b.html) |
-| Pi 3 Model B+ | [Adafruit](https://www.adafruit.com/product/3775) | — |
-| Pi 4 Model B | — | [Sparkfun](https://www.sparkfun.com/raspberry-pi-4-model-b-1gb.html) |
+| Pi 3 Model B | [Adafruit](https://www.adafruit.com/product/3055) | — |
+| Pi 3 Model B+ | [Adafruit](https://www.adafruit.com/product/3775) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-3-b.html) |
+| Pi 4 Model B (1 GB) | [Adafruit](https://www.adafruit.com/product/4295) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-4-model-b-1gb.html) |
+| Pi 4 Model B (2 GB) | [Adafruit](https://www.adafruit.com/product/4292) | — |
+| Pi 4 Model B (4 GB) | [Adafruit](https://www.adafruit.com/product/4296) | — |
+| Pi 4 Model B (8 GB) | [Adafruit](https://www.adafruit.com/product/4564) | — |
 | Pi 5 (2GB) | [Adafruit](https://www.adafruit.com/product/6007) | — |
 | Pi 5 (4GB) | [Adafruit](https://www.adafruit.com/product/5813) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-5-4gb.html) |
 | Pi 5 (8GB) | [Adafruit](https://www.adafruit.com/product/5812) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-5-8gb.html) |
@@ -298,14 +301,11 @@ Available from [raspberrypi.com](https://www.raspberrypi.com/products/) and auth
 
 Use the official Raspberry Pi power supply for your model. Third-party supplies that skimp on current cause instability under video load.
 
-| Pi Model | Connector | Minimum current |
-|----------|-----------|----------------|
-| Pi 3 Model B / B+ | Micro USB | 2.5A |
-| Pi Zero 2 W | Micro USB | 2.5A |
-| Pi 4 Model B | USB-C | 3A |
-| Pi 5 | USB-C | 5A (27W) |
-
-Official Raspberry Pi power supplies — [link TBD]
+| Pi Model | Connector | Adafruit | Sparkfun |
+|----------|-----------|----------|----------|
+| Pi 3 Model B / B+ / Pi Zero 2 W | Micro USB 2.5A | [Adafruit](https://www.adafruit.com/product/1995) | [Sparkfun](https://www.sparkfun.com/wall-adapter-power-supply-5-1v-dc-2-5a-usb-micro-b.html) |
+| Pi 4 Model B | USB-C 3A | [Adafruit](https://www.adafruit.com/product/4298) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-wall-adapter-power-supply-5-1vdc-3-0a-15-3w-usb-c.html) |
+| Pi 5 | USB-C 5A (27W) | [Adafruit](https://www.adafruit.com/product/5814) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-27w-usb-c-pd-power-supply-black.html) |
 
 ### HDMI Cable
 
