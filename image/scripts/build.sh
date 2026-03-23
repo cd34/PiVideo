@@ -22,11 +22,12 @@ else
   _HAS_CONFIG=false
 fi
 
-# ── Build daemon ───────────────────────────────────────────────────────────
-echo "==> Building daemon for aarch64..."
-cd "$REPO_ROOT/daemon"
-cargo build --release --target aarch64-unknown-linux-gnu
-
+# ── Copy daemon binary (built by caller: make build-cross or CI) ───────────
+if [[ ! -f "$DAEMON_BIN" ]]; then
+  echo "ERROR: daemon binary not found at $DAEMON_BIN"
+  echo "Run 'make build-cross' first"
+  exit 1
+fi
 echo "==> Copying daemon binary..."
 mkdir -p "$OVERLAY/usr/local/bin"
 cp "$DAEMON_BIN" "$OVERLAY/usr/local/bin/pivideo-daemon"
