@@ -383,7 +383,7 @@ Plugs onto the Pi's 40-pin header; every pin becomes a labeled screw terminal. N
 
 One per video slot, up to 7. Any normally-open momentary contact switch works. Three common options:
 
-**Metal pushbuttons with LED ring (recommended)** — chrome-plated, 16mm panel-mount, rated for heavy use. The built-in LED is optional; the switch works without it. See [wiring-led.svg](wiring-led.svg) for LED wiring details (requires a 150 Ω resistor per button and a 3.3V connection — no software changes needed, LEDs are always on).
+**Metal pushbuttons with LED ring (recommended)** — chrome-plated, 16mm panel-mount, rated for heavy use. The built-in LED is optional; the switch works without it. See [wiring-led.svg](wiring-led.svg) for LED wiring details (connect LED+ to 3.3V, LED− to GND — LEDs are always on, no software changes needed). The Sparkfun and Adafruit buttons listed below have a built-in current-limiting resistor, so no external resistor is required. If you use a different LED switch that lacks one, add a 150 Ω resistor in series with LED+.
 
 | Color | Adafruit | Sparkfun |
 |-------|----------|----------|

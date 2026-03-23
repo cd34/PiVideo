@@ -6,8 +6,8 @@
 
   <!-- Title -->
   <text x="500" y="26" text-anchor="middle" font-size="17" font-weight="bold" fill="#2d3436">PiVideo — Wiring with LED Illumination (Advanced)</text>
-  <text x="500" y="43" text-anchor="middle" font-size="10" fill="#636e72">LED wiring is optional — buttons work without it. LED circuit: 3.3V (Pin 1 or 17) → 150 Ω resistor → LED+ · LED− → GND.</text>
-  <text x="500" y="57" text-anchor="middle" font-size="10" fill="#636e72">LEDs are always illuminated. No software changes required. A junction dot (●) means wires connect; a crossing without a dot means no connection.</text>
+  <text x="500" y="43" text-anchor="middle" font-size="10" fill="#636e72">LED wiring is optional — buttons work without it. LED circuit: 3.3V (Pin 1 or 17) → LED+ · LED− → GND. LEDs are always on. No software changes required.</text>
+  <text x="500" y="57" text-anchor="middle" font-size="10" fill="#636e72">Note: the 150 Ω resistors are only needed for LED switches WITHOUT a built-in resistor. The Sparkfun and Adafruit metal pushbuttons in the README have one built in — omit the resistors for those.</text>
 
   <!-- ══════════════════════════════════════════════════════════ -->
   <!-- Raspberry Pi Board                                         -->
