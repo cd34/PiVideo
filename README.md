@@ -184,22 +184,36 @@ RUST_LOG=info ./pivideo-daemon
 
 ## Appendix: Parts List
 
-Links to be added — search terms and sources are listed where links are pending.
-
 ### Raspberry Pi
 
-Any of the following are sufficient. Older models (Pi 1, Pi 2) are not recommended — video playback will be sluggish.
+Available from [raspberrypi.com](https://www.raspberrypi.com/products/) and authorized resellers. The **Pi 3 B+**, **Pi 4 B**, or **Pi 5 (2GB or 4GB)** are the recommended choices — right balance of performance and cost. Older models (Pi 1, Pi 2) are not recommended; video playback will be sluggish.
 
-| Model | Power | HDMI connector | Notes |
-|-------|-------|---------------|-------|
-| Raspberry Pi 3 Model B / B+ | Micro USB, 5V 2.5A | Full-size HDMI | Solid choice |
-| Raspberry Pi 4 Model B | USB-C, 5V 3A | micro-HDMI | Best performance |
-| Raspberry Pi 5 | USB-C, 5V 5A (27W) | micro-HDMI | Overkill but works |
-| Raspberry Pi Zero 2 W | Micro USB, 5V 2.5A | mini-HDMI | Budget option; adequate for 1080p |
+| Model | Power | HDMI | Notes |
+|-------|-------|------|-------|
+| Pi 3 Model B | Micro USB, 5V 2.5A | Full-size HDMI | |
+| Pi 3 Model B+ | Micro USB, 5V 2.5A | Full-size HDMI | Recommended |
+| Pi 4 Model B | USB-C, 5V 3A | micro-HDMI | Recommended |
+| Pi 5 (2GB) | USB-C, 5V 5A | micro-HDMI | Recommended |
+| Pi 5 (4GB) | USB-C, 5V 5A | micro-HDMI | Recommended |
+| Pi 5 (8GB) | USB-C, 5V 5A | micro-HDMI | More than needed |
+| Pi 5 (16GB) | USB-C, 5V 5A | micro-HDMI | Overkill |
+| Pi Zero 2 W | Micro USB, 5V 2.5A | mini-HDMI | Budget option; adequate for 1080p |
+
+**Where to buy:**
+
+| Model | Adafruit | Sparkfun |
+|-------|----------|----------|
+| Pi 3 Model B | [Adafruit](https://www.adafruit.com/product/3055) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-3-b.html) |
+| Pi 3 Model B+ | [Adafruit](https://www.adafruit.com/product/3775) | — |
+| Pi 4 Model B | — | [Sparkfun](https://www.sparkfun.com/raspberry-pi-4-model-b-1gb.html) |
+| Pi 5 (2GB) | [Adafruit](https://www.adafruit.com/product/6007) | — |
+| Pi 5 (4GB) | [Adafruit](https://www.adafruit.com/product/5813) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-5-4gb.html) |
+| Pi 5 (8GB) | [Adafruit](https://www.adafruit.com/product/5812) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-5-8gb.html) |
+| Pi 5 (16GB) | [Adafruit](https://www.adafruit.com/product/6125) | — |
 
 ### Power Supply
 
-Use the official Raspberry Pi power supply for your model — third-party supplies that skimp on current cause instability under video load.
+Use the official Raspberry Pi power supply for your model. Third-party supplies that skimp on current cause instability under video load.
 
 | Pi Model | Connector | Minimum current |
 |----------|-----------|----------------|
@@ -208,36 +222,35 @@ Use the official Raspberry Pi power supply for your model — third-party suppli
 | Pi 4 Model B | USB-C | 3A |
 | Pi 5 | USB-C | 5A (27W) |
 
-- Raspberry Pi official power supplies — [link TBD]
+Official Raspberry Pi power supplies — [link TBD]
 
 ### HDMI Cable
 
-Match the cable to your Pi model's port.
+Match the cable to your Pi model.
 
-| Pi Model | Cable needed |
-|----------|-------------|
-| Pi 3 Model B / B+ | Standard HDMI to HDMI |
-| Pi 4 Model B | micro-HDMI to HDMI |
-| Pi 5 | micro-HDMI to HDMI |
-| Pi Zero 2 W | mini-HDMI to HDMI |
+| Pi Model | Cable needed | Buy |
+|----------|-------------|-----|
+| Pi 3 Model B / B+ | Standard HDMI to HDMI | [Adafruit](https://www.adafruit.com/product/608) · [Sparkfun](https://www.sparkfun.com/raspberry-pi-official-hdmi-cable-1m.html) |
+| Pi 4 Model B | micro-HDMI to HDMI | [Adafruit](https://www.adafruit.com/product/1322) · [Sparkfun](https://www.sparkfun.com/raspberry-pi-official-micro-hdmi-to-hdmi-a-cable-2m.html) |
+| Pi 5 | micro-HDMI to HDMI | [Adafruit](https://www.adafruit.com/product/1322) · [Sparkfun](https://www.sparkfun.com/raspberry-pi-official-micro-hdmi-to-hdmi-a-cable-2m.html) |
+| Pi Zero 2 W | mini-HDMI to HDMI | [link TBD] |
 
-### GPIO Screw Terminal HAT
+### GPIO Screw Terminal HAT — Pi-EzConnect
 
-Plugs onto the Pi's 40-pin header; every pin becomes a labeled screw terminal.
+Plugs onto the Pi's 40-pin header; every pin becomes a labeled screw terminal. No soldering required.
 
-- Adafruit — [link TBD]
-- Search: *"Raspberry Pi GPIO screw terminal HAT"*
+- [Adafruit — Pi-EzConnect Terminal Block Breakout HAT](https://www.adafruit.com/product/2711)
 
 ### Momentary Push Buttons (non-illuminated)
 
-One per video slot, up to 7. Use normally-open momentary buttons without LEDs — no extra wiring or resistors needed.
+One per video slot, up to 7. Use normally-open momentary buttons without LEDs — simpler wiring, no resistors needed.
 
 - Adafruit — [link TBD]
 - Search: *"arcade button 30mm momentary non-illuminated"*
 
 ### Arcade Button Quick-Connect Wires — 0.25" (6.3mm)
 
-Slip directly onto the spade terminals of arcade buttons — no crimping or soldering needed. One wire per button terminal (two per button).
+Slip directly onto the spade terminals of arcade buttons — no crimping or soldering needed. Two per button (one for signal, one for ground).
 
 - Adafruit — [link TBD]
 - Search: *"Arcade Button and Switch Quick-Connect Wires 0.25"*
@@ -252,10 +265,9 @@ Slip directly onto the spade terminals of arcade buttons — no crimping or sold
 
 ### Ground Bus
 
-All button ground wires need to meet at a single point before running to the Pi's GND pin. A small terminal block strip used as a bus bar is the cleanest approach — connect all ground wires to the strip, then run one wire from the strip to a GND pin on the HAT.
+All button ground wires meet at a ground bus, then a single wire runs from the bus to a GND terminal on the HAT. A small terminal block strip works well — any 6–10 position barrier strip.
 
-- Search: *"terminal block bus bar"* or *"barrier strip terminal block"*
-- Any small multi-position terminal strip (6–10 positions) works
+- Search: *"barrier strip terminal block"*
 
 ### Ferrules + Crimper (optional but recommended)
 
