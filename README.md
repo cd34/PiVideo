@@ -57,7 +57,7 @@ Insert the SD card, power on the Pi, and wait about 2 minutes. First boot runs a
 
 ## 2. Electronics
 
-Connect momentary push buttons between each GPIO pin and any GND pin. The software uses internal pull-up resistors — no external resistors or other components are needed.
+Connect momentary push buttons between each GPIO pin and any GND pin. The Pi's GPIO pins have internal pull-up resistors that the daemon enables at startup — no external pull-up resistors or other components are needed for the switch circuit.
 
 See [wiring.svg](wiring.svg) for the full diagram. For optional LED illumination on the buttons, see [wiring-led.svg](wiring-led.svg).
 
