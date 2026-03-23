@@ -383,7 +383,7 @@ Availability varies — some models are frequently out of stock. Any model in th
 | Pi 4 Model B (2 GB) | [Adafruit](https://www.adafruit.com/product/4292) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-4-model-b-2-gb.html) |
 | Pi 4 Model B (4 GB) | [Adafruit](https://www.adafruit.com/product/4296) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-4-model-b-4-gb.html) |
 | Pi 4 Model B (8 GB) | [Adafruit](https://www.adafruit.com/product/4564) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-4-model-b-8-gb.html) |
-| Pi 5 (2GB) | [Adafruit](https://www.adafruit.com/product/6007) | — |
+| Pi 5 (2GB) | [Adafruit](https://www.adafruit.com/product/6007) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-5-2gb.html) |
 | Pi 5 (4GB) | [Adafruit](https://www.adafruit.com/product/5813) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-5-4gb.html) |
 | Pi 5 (8GB) | [Adafruit](https://www.adafruit.com/product/5812) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-5-8gb.html) |
 | Pi 5 (16GB) | [Adafruit](https://www.adafruit.com/product/6125) | [Sparkfun](https://www.sparkfun.com/raspberry-pi-5-16gb.html) |
