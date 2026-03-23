@@ -1,0 +1,5 @@
+Component: main
+Origin: PiVideo
+Label: PiVideo
+Architecture: arm64
+Description: PiVideo kiosk software

@@ -1,0 +1,29 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Origin: PiVideo
+Label: PiVideo
+Codename: bookworm
+Date: Mon, 23 Mar 2026 19:32:45 UTC
+Architectures: arm64
+Components: main
+Description: PiVideo kiosk software
+MD5Sum:
+ ee62f36ae97140353e0e38d055828792 570 main/binary-arm64/Packages
+ ca6710950f88e9b4dffb15640ff3bfca 423 main/binary-arm64/Packages.gz
+ d510d1f32fa7385c38963ce91f9861bc 103 main/binary-arm64/Release
+SHA1:
+ ccdaf87d11f8e6ff94dcdaf7b86a924be2cdd579 570 main/binary-arm64/Packages
+ 2e7e733c1633d396169d4830746090d7d37aa6fb 423 main/binary-arm64/Packages.gz
+ 2bb19b2ea8c5cfdb5c306e98af4924744f566abb 103 main/binary-arm64/Release
+SHA256:
+ 52310c4daed68424609db87b0459b1e7d1d0e050d126f00f996e87fdb662d2e7 570 main/binary-arm64/Packages
+ d627150feb70ed598e100e43ec38db2b25d95af95628fdca4a8e94bc44024d9d 423 main/binary-arm64/Packages.gz
+ 816c6bf2495350b8dec08f7f4e46e3cd6c152401afd91ef63d014f35911746ca 103 main/binary-arm64/Release
+-----BEGIN PGP SIGNATURE-----
+
+iHUEARYKAB0WIQTgL8Ue2U/XogbIdHLqsYG++cPmRQUCacGVXQAKCRDqsYG++cPm
+RblCAP9P+JPePephctSL6XVFa6nVBJdIqFNx8sxW8I8ocBbM4wD+OZ0H8qTTu6Xc
++OcfxlyhfPeZO1s0YuyAHlf0KnAAbwE=
+=YnDA
+-----END PGP SIGNATURE-----

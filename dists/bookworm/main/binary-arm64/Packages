@@ -1,0 +1,16 @@
+Package: pivideo
+Version: 1.0.0
+Architecture: arm64
+Maintainer: PiVideo <https://github.com/cd34/PiVideo>
+Depends: mpv, python3
+Priority: optional
+Section: misc
+Filename: pool/main/p/pivideo/pivideo_1.0.0_arm64.deb
+Size: 561304
+SHA256: f703c499e537d70c7faf6443f531a79465d6dab773b59c0c73fb7da9010240c5
+SHA1: 9eef38a36d2c5b84ea7a41140cfdc1f96c13fba2
+MD5sum: db97abdc0290da19bdfb8b76de3e1dd1
+Description: Raspberry Pi video kiosk daemon and web UI
+ GPIO-triggered video kiosk for museums and visitor centers.
+ Press a button, watch a video. Manage content from a browser.
+
