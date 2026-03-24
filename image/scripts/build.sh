@@ -82,21 +82,22 @@ cat > "$OVERLAY/usr/local/bin/pivideo-firstrun.sh" <<'FIRSTRUN_HEADER'
 set -e
 export DEBIAN_FRONTEND=noninteractive
 
-# Register PiVideo with dpkg so unattended-upgrades can manage future updates.
-# The .deb contains the same files already in place from the image overlay —
-# this just tells dpkg about them so apt can upgrade the package going forward.
-if ls /opt/pivideo/pivideo_*.deb &>/dev/null; then
-  echo "==> Registering PiVideo package with dpkg..."
-  dpkg -i /opt/pivideo/pivideo_*.deb
-  rm -f /opt/pivideo/pivideo_*.deb
-fi
-
 echo "==> PiVideo first-run: updating system..."
 apt-get update -qq
 apt-get -y \
   -o Dpkg::Options::="--force-confdef" \
   -o Dpkg::Options::="--force-confold" \
   dist-upgrade
+
+# Register PiVideo with dpkg so unattended-upgrades can manage future updates.
+# The .deb contains the same files already in place from the image overlay —
+# this just tells dpkg about them so apt can upgrade the package going forward.
+# Use apt-get install (not dpkg -i) so dependencies like mpv are resolved.
+if ls /opt/pivideo/pivideo_*.deb &>/dev/null; then
+  echo "==> Registering PiVideo package with dpkg..."
+  apt-get install -y /opt/pivideo/pivideo_*.deb
+  rm -f /opt/pivideo/pivideo_*.deb
+fi
 
 FIRSTRUN_HEADER
 
