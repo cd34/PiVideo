@@ -107,21 +107,15 @@ jobs:
 
           IMAGE_URL="https://github.com/cd34/PiVideo/releases/download/${GITHUB_REF_NAME}/pivideo_${IMG_VERSION}_arm64.img.xz"
           RELEASE_DATE=$(date -u +%Y-%m-%d)
-          cat > /tmp/apt-repo/os_list.json <<EOF
-{
-  "os_list": [{
-    "name": "PiVideo",
-    "description": "GPIO-triggered video kiosk for museums and visitor centers. Press a button, watch a video.",
-    "url": "$IMAGE_URL",
-    "extract_size": $IMG_EXTRACT_SIZE,
-    "extract_sha256": "$IMG_EXTRACT_SHA256",
-    "image_download_size": $IMG_DOWNLOAD_SIZE,
-    "image_download_sha256": "$IMG_DOWNLOAD_SHA256",
-    "release_date": "$RELEASE_DATE",
-    "os_customisation_supported": true
-  }]
-}
-EOF
+          jq -n \
+            --arg url "$IMAGE_URL" \
+            --argjson extract_size "$IMG_EXTRACT_SIZE" \
+            --arg extract_sha256 "$IMG_EXTRACT_SHA256" \
+            --argjson download_size "$IMG_DOWNLOAD_SIZE" \
+            --arg download_sha256 "$IMG_DOWNLOAD_SHA256" \
+            --arg release_date "$RELEASE_DATE" \
+            '{"os_list": [{"name": "PiVideo", "description": "GPIO-triggered video kiosk for museums and visitor centers. Press a button, watch a video.", "url": $url, "extract_size": $extract_size, "extract_sha256": $extract_sha256, "image_download_size": $download_size, "image_download_sha256": $download_sha256, "release_date": $release_date, "os_customisation_supported": true}]}' \
+            > /tmp/apt-repo/os_list.json
 
           cd /tmp/apt-repo
           git add -A
