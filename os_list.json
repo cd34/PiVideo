@@ -3,11 +3,11 @@
     {
       "name": "PiVideo",
       "description": "GPIO-triggered video kiosk for museums and visitor centers. Press a button, watch a video.",
-      "url": "https://github.com/cd34/PiVideo/releases/download/v1.0.4/pivideo_1.0.4_arm64.img.xz",
+      "url": "https://github.com/cd34/PiVideo/releases/download/v1.0.5/pivideo_1.0.5_arm64.img.xz",
       "extract_size": 2986344448,
-      "extract_sha256": "e9fa448fc56e8985c46d7fe38edda87a4d2e5b6716e29f330d7df39b06e3a9a7",
-      "image_download_size": 581486004,
-      "image_download_sha256": "d31ed9aabbeb20ebfe7f93052cc7831df3a17dd77f873e82790ae9ea28d5bff0",
+      "extract_sha256": "b87f3f2bb0c8a71c7f461ada3ff5b6130fa64045564dc162926658a990a23d14",
+      "image_download_size": 581486012,
+      "image_download_sha256": "4ac77804283be286f5253fc1dfc8a4f01248dc8dd0d702779a68209d81717b65",
       "release_date": "2026-03-24",
       "init_format": "cloudinit-rpi",
       "os_customisation_supported": true
