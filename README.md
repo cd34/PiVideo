@@ -69,6 +69,8 @@ For arcade-style buttons, use **0.25" quick-connect wires** — they slip direct
 
 Open a browser and go to `http://<hostname>.local:8080`.
 
+![PiVideo web admin](docs/pivideo-web-admin.png)
+
 The page shows all 7 button slots. Each slot displays the currently assigned video (or "no video assigned") and has an Upload button.
 
 - **Upload** — select a video file from your computer; it is assigned to that slot immediately
