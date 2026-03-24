@@ -174,7 +174,6 @@ web/          Python web UI for uploading and managing videos
 ### Prerequisites
 
 - Rust toolchain with `aarch64-unknown-linux-gnu` target
-- `pi-gen` (or compatible Raspberry Pi image builder)
 - Python 3
 
 ### Commands
@@ -187,7 +186,7 @@ make image    # cross-compile, build .deb, and assemble rootfs overlay
 make clean    # clean build artifacts
 ```
 
-`make image` cross-compiles the daemon, builds the `.deb`, copies the web server, generates a default `config.json`, and assembles `image/rootfs-overlay/`. Pass the result to `pi-gen` to produce a bootable `.img`.
+`make image` cross-compiles the daemon, builds the `.deb`, copies the web server, generates a default `config.json`, and assembles `image/rootfs-overlay/`. The final `.img.xz` is produced by CI: it downloads the latest Raspberry Pi OS Lite, mounts it, and injects the overlay. Tag a release to trigger this automatically.
 
 ### Releasing updates to deployed kiosks
 
@@ -300,7 +299,6 @@ Requirements for running `make build` and `make image` on your development machi
    linker = "aarch64-unknown-linux-gnu-gcc"
    ```
 4. **Python 3** — ships with macOS; or install via `brew install python`.
-5. **`pi-gen`** — runs on Linux only. On macOS, run it inside Docker or a Linux VM to produce the final `.img`.
 
 ### Linux
 
@@ -318,23 +316,16 @@ Requirements for running `make build` and `make image` on your development machi
    [target.aarch64-unknown-linux-gnu]
    linker = "aarch64-linux-gnu-gcc"
    ```
-3. **`pi-gen` dependencies** (Debian/Ubuntu):
-   ```bash
-   sudo apt-get install coreutils quilt parted qemu-user-static debootstrap \
-     zerofree zip dosfstools libarchive-tools libcap2-bin grep rsync xz-utils \
-     file git curl bc
-   ```
-   See the [pi-gen README](https://github.com/RPi-Distro/pi-gen) for the current full list.
-4. **Python 3** — install via your distro package manager if not already present.
+3. **Python 3** — install via your distro package manager if not already present.
 
 ### Windows
 
-Cross-compiling for aarch64 Linux and running `pi-gen` are not natively supported on Windows. Use one of these approaches:
+Cross-compiling for aarch64 Linux is not natively supported on Windows. Use one of these approaches:
 
 - **WSL 2 (recommended)** — install Ubuntu via the Microsoft Store, then follow the Linux instructions above inside the WSL environment.
-- **Docker** — the [pi-gen Docker workflow](https://github.com/RPi-Distro/pi-gen#running-in-docker) runs the full image build in a container. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and follow those instructions.
+- **Docker** — run the build inside a Linux container with the cross-compilation toolchain installed.
 
-For development without building an image (daemon compilation only), install Rust for Windows from [rustup.rs](https://rustup.rs/) and use WSL for the cross-compilation step.
+For development without cross-compiling, install Rust for Windows from [rustup.rs](https://rustup.rs/) and use WSL for the cross-compilation step.
 
 ---
 
