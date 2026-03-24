@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """PiVideo web UI — manage video slots and idle splash."""
 
+import errno
 import html
 import io
 import json
@@ -90,6 +91,27 @@ def _parse_multipart(rfile, content_type, content_length):
             fields[name] = _Field(name, value=body.decode("utf-8", errors="replace"))
 
     return _Form(fields)
+
+
+# ── Upload limits & filename validation ────────────────────────────────────
+
+# Maximum upload body size in bytes. Configurable via MAX_UPLOAD_MB env var.
+MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_MB", "4096")) * 1024 * 1024
+
+
+def _sanitize_filename(raw):
+    """Strip path components and reject dangerous filenames.
+
+    Returns (filename, error_message_or_None).
+    """
+    name = os.path.basename(raw)
+    if not name:
+        return None, "No file selected."
+    if "\x00" in name:
+        return None, "Invalid filename."
+    if len(name.encode("utf-8")) > 255:
+        return None, "Filename too long (max 255 bytes)."
+    return name, None
 
 
 # ── Environment detection ──────────────────────────────────────────────────
@@ -380,6 +402,13 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         length = int(self.headers.get("Content-Length", 0))
+        if length > MAX_UPLOAD_BYTES:
+            self.send_html(
+                render_page(error=f"Upload too large (limit: {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)."),
+                413,
+            )
+            return
+
         form = _parse_multipart(self.rfile, ct, length)
 
         splash_kind = form.getvalue("splash")  # "image" | "video" | None
@@ -403,7 +432,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_html(render_page(error="No file selected."), 400)
             return
 
-        filename = os.path.basename(field.filename)
+        filename, err = _sanitize_filename(field.filename)
+        if err:
+            self.send_html(render_page(error=err), 400)
+            return
+
         ext = os.path.splitext(filename)[1].lower()
         if ext not in ALLOWED_EXTS:
             self.send_html(
@@ -412,13 +445,28 @@ class Handler(BaseHTTPRequestHandler):
             )
             return
 
-        VIDEO_DIR.mkdir(parents=True, exist_ok=True)
-        with open(VIDEO_DIR / filename, "wb") as f:
-            shutil.copyfileobj(field.file, f)
+        dest = VIDEO_DIR / filename
+        try:
+            VIDEO_DIR.mkdir(parents=True, exist_ok=True)
+            with open(dest, "wb") as f:
+                shutil.copyfileobj(field.file, f)
+        except OSError as e:
+            dest.unlink(missing_ok=True)
+            if e.errno == errno.ENOSPC:
+                self.send_html(render_page(error="Not enough space on the SD card to save this file."), 507)
+            else:
+                self.send_html(render_page(error=f"Could not save file: {e.strerror}"), 500)
+            return
 
-        config = load_config()
-        config[slot]["video"] = filename
-        save_config(config)
+        try:
+            config = load_config()
+            config[slot]["video"] = filename
+            save_config(config)
+        except OSError as e:
+            dest.unlink(missing_ok=True)
+            self.send_html(render_page(error=f"Could not update configuration: {e.strerror}"), 500)
+            return
+
         self.redirect()
 
     def _upload_splash(self, form, kind):
@@ -427,9 +475,12 @@ class Handler(BaseHTTPRequestHandler):
             self.send_html(render_page(error="No file selected."), 400)
             return
 
-        filename = os.path.basename(field.filename)
-        ext = os.path.splitext(filename)[1].lower()
+        filename, err = _sanitize_filename(field.filename)
+        if err:
+            self.send_html(render_page(error=err), 400)
+            return
 
+        ext = os.path.splitext(filename)[1].lower()
         if kind == "image":
             if ext not in ALLOWED_IMAGE_EXTS:
                 self.send_html(
@@ -445,13 +496,28 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 return
 
-        VIDEO_DIR.mkdir(parents=True, exist_ok=True)
-        with open(VIDEO_DIR / filename, "wb") as f:
-            shutil.copyfileobj(field.file, f)
+        dest = VIDEO_DIR / filename
+        try:
+            VIDEO_DIR.mkdir(parents=True, exist_ok=True)
+            with open(dest, "wb") as f:
+                shutil.copyfileobj(field.file, f)
+        except OSError as e:
+            dest.unlink(missing_ok=True)
+            if e.errno == errno.ENOSPC:
+                self.send_html(render_page(error="Not enough space on the SD card to save this file."), 507)
+            else:
+                self.send_html(render_page(error=f"Could not save file: {e.strerror}"), 500)
+            return
 
-        splash = load_splash()
-        splash[kind] = filename
-        save_splash(splash)
+        try:
+            splash = load_splash()
+            splash[kind] = filename
+            save_splash(splash)
+        except OSError as e:
+            dest.unlink(missing_ok=True)
+            self.send_html(render_page(error=f"Could not update configuration: {e.strerror}"), 500)
+            return
+
         self.redirect()
 
     def _handle_clear(self):

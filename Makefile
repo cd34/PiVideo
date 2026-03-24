@@ -11,6 +11,7 @@ build:
 
 test:
 	cd daemon && cargo test
+	python3 web/test_server.py -v
 
 # Cross-compile daemon for Raspberry Pi (aarch64)
 build-cross:
