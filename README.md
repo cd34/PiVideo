@@ -26,6 +26,8 @@ Videos are managed through a browser-based interface: upload a file, assign it t
 
 A selector interface is planned to support more than 7 videos on the same hardware: a menu with up/down navigation and a play button would let visitors browse a larger library without needing additional GPIO pins.
 
+A printable enclosure is available: [OpenSCAD source](enclosure/serlcd_esp32_case.scad) · [STL](enclosure/serlcd_esp32_case.stl)
+
 For architecture, build, and fork instructions see **[DEVELOPER.md](DEVELOPER.md)**.
 
 ---
