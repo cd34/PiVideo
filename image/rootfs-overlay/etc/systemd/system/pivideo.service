@@ -3,6 +3,7 @@ Description=PiVideo GPIO Button Daemon
 After=multi-user.target
 
 [Service]
+ExecStartPre=/bin/dmesg -n 1
 ExecStart=/usr/local/bin/pivideo-daemon
 Restart=on-failure
 RestartSec=5

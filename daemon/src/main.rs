@@ -2,11 +2,14 @@ use anyhow::{Context, Result};
 use rppal::gpio::Gpio;
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::io::{BufRead, BufReader, Write};
+use std::os::unix::net::UnixStream;
 use std::process::{Child, Command};
 use std::{env, fs, thread, time::Duration};
 
 const DEFAULT_CONFIG: &str = "/opt/pivideo/config.json";
 const DEFAULT_VIDEO_DIR: &str = "/opt/pivideo/videos";
+const MPV_SOCKET: &str = "/tmp/pivideo-mpv.sock";
 
 #[derive(Deserialize, Default)]
 struct SplashConfig {
@@ -66,44 +69,119 @@ fn read_splash() -> SplashConfig {
     read_splash_from(&config_path())
 }
 
-/// Start the idle splash — looping video takes priority over still image.
-/// Returns None if no splash is configured (screen goes blank/black).
-fn start_idle() -> Option<Child> {
-    let splash = read_splash();
+/// Resolve the splash config to a file path (video takes priority over image).
+fn splash_path(splash: &SplashConfig) -> Option<String> {
     let dir = video_dir();
-    if let Some(ref v) = splash.video {
-        let path = format!("{}/{}", dir, v);
-        log::info!("Idle: looping splash video {}", path);
-        Command::new("mpv")
-            .args(["--fullscreen", "--no-terminal", "--loop=inf", &path])
-            .spawn().ok()
-    } else if let Some(ref img) = splash.image {
-        let path = format!("{}/{}", dir, img);
-        log::info!("Idle: showing splash image {}", path);
-        Command::new("mpv")
-            .args(["--fullscreen", "--no-terminal",
-                   "--loop=inf", "--image-display-duration=inf", &path])
-            .spawn().ok()
-    } else {
-        log::info!("Idle: no splash configured");
-        None
+    splash.video.as_ref()
+        .or(splash.image.as_ref())
+        .map(|f| format!("{}/{}", dir, f))
+}
+
+// ── Persistent mpv instance with IPC control ────────────────────────────────
+
+struct Mpv {
+    child: Child,
+    writer: UnixStream,
+    reader: BufReader<UnixStream>,
+    line_buf: String,
+}
+
+impl Mpv {
+    /// Spawn mpv in idle mode with an IPC socket for seamless video switching.
+    fn spawn() -> Result<Self> {
+        let _ = fs::remove_file(MPV_SOCKET);
+
+        let child = Command::new("mpv")
+            .args([
+                "--fullscreen",
+                "--no-terminal",
+                "--idle",
+                "--image-display-duration=inf",
+                &format!("--input-ipc-server={}", MPV_SOCKET),
+            ])
+            .spawn()
+            .context("Failed to start mpv")?;
+
+        // Wait for the IPC socket to appear
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while std::time::Instant::now() < deadline {
+            if std::path::Path::new(MPV_SOCKET).exists() {
+                break;
+            }
+            thread::sleep(Duration::from_millis(50));
+        }
+
+        let writer = UnixStream::connect(MPV_SOCKET)
+            .context("Failed to connect to mpv IPC socket")?;
+        let reader_stream = writer.try_clone()?;
+        reader_stream.set_nonblocking(true)?;
+
+        let mut mpv = Mpv {
+            child,
+            writer,
+            reader: BufReader::new(reader_stream),
+            line_buf: String::new(),
+        };
+
+        // Observe the idle-active property so we know when playback finishes
+        mpv.send(&serde_json::json!({"command": ["observe_property", 1, "idle-active"]}))?;
+
+        Ok(mpv)
+    }
+
+    /// Send a JSON command to mpv (fire-and-forget).
+    fn send(&mut self, cmd: &serde_json::Value) -> Result<()> {
+        writeln!(self.writer, "{}", cmd)?;
+        Ok(())
+    }
+
+    /// Load a file. If `looping` is true, the file loops forever (for splash).
+    fn load_file(&mut self, path: &str, looping: bool) {
+        let loop_val = if looping { "inf" } else { "no" };
+        let _ = self.send(&serde_json::json!({"command": ["set_property", "loop-file", loop_val]}));
+        let _ = self.send(&serde_json::json!({"command": ["loadfile", path, "replace"]}));
+    }
+
+    /// Non-blocking check: did mpv become idle (i.e. playback finished)?
+    /// Drains all pending events and returns true if idle-active became true.
+    fn poll_idle(&mut self) -> bool {
+        let mut became_idle = false;
+        loop {
+            self.line_buf.clear();
+            match self.reader.read_line(&mut self.line_buf) {
+                Ok(0) => break,  // EOF
+                Ok(_) => {
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&self.line_buf) {
+                        if v.get("event").and_then(|e| e.as_str()) == Some("property-change")
+                            && v.get("id") == Some(&serde_json::json!(1))
+                            && v.get("data") == Some(&serde_json::json!(true))
+                        {
+                            became_idle = true;
+                        }
+                    }
+                }
+                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
+                Err(_) => break,
+            }
+        }
+        became_idle
+    }
+
+    fn is_alive(&mut self) -> bool {
+        matches!(self.child.try_wait(), Ok(None))
+    }
+
+    fn kill(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
     }
 }
 
-/// Kill a running mpv child and reap it to avoid zombies.
-fn kill_child(child: &mut Option<Child>) {
-    if let Some(ref mut c) = child {
-        let _ = c.kill();
-        let _ = c.wait();
+impl Drop for Mpv {
+    fn drop(&mut self) {
+        self.kill();
+        let _ = fs::remove_file(MPV_SOCKET);
     }
-    *child = None;
-}
-
-/// Non-blocking check: has the child process exited?
-fn has_exited(child: &mut Option<Child>) -> bool {
-    child.as_mut()
-        .map(|c| matches!(c.try_wait(), Ok(Some(_))))
-        .unwrap_or(false)
 }
 
 #[cfg(test)]
@@ -242,16 +320,41 @@ mod tests {
         assert!(s.video.is_none());
     }
 
+    // ── splash_path ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn splash_path_prefers_video() {
+        let s = SplashConfig {
+            image: Some("bg.jpg".into()),
+            video: Some("loop.mp4".into()),
+        };
+        let p = splash_path(&s).unwrap();
+        assert!(p.ends_with("loop.mp4"));
+    }
+
+    #[test]
+    fn splash_path_falls_back_to_image() {
+        let s = SplashConfig { image: Some("bg.jpg".into()), video: None };
+        let p = splash_path(&s).unwrap();
+        assert!(p.ends_with("bg.jpg"));
+    }
+
+    #[test]
+    fn splash_path_none_when_empty() {
+        let s = SplashConfig { image: None, video: None };
+        assert!(splash_path(&s).is_none());
+    }
+
     // ── Concurrent button press behaviour ────────────────────────────────────
     //
     // The daemon uses a single-threaded blocking poll loop. When multiple pins
     // go low simultaneously they are handled in iteration order:
     //
-    //   1. First low pin found → current process killed, button video started,
-    //      debounce loop blocks on that pin until it goes HIGH again.
+    //   1. First low pin found → video loaded via IPC, debounce loop blocks on
+    //      that pin until it goes HIGH again.
     //   2. All other pins are ignored while the debounce loop is running.
     //   3. After pin A is released, the outer loop resumes. If pin B is still
-    //      low it is handled next, interrupting the video started by A.
+    //      low it is handled next, loading a new video that replaces A's.
     //
     // Consequence: holding button A blocks detection of button B until A is
     // released. This is intentional kiosk behaviour — a single physical press
@@ -280,25 +383,40 @@ fn main() -> Result<()> {
 
     log::info!("PiVideo daemon started, watching {} pins", pins.len());
 
-    // State machine: idle (showing splash) ↔ playing (button video)
-    let mut current: Option<Child> = None;
+    let mut mpv = Mpv::spawn()?;
     let mut idle = true;
-    let mut idle_started = false; // prevents re-calling start_idle every 10ms
+
+    // Start idle splash immediately
+    let splash = read_splash();
+    if let Some(path) = splash_path(&splash) {
+        log::info!("Idle: {}", path);
+        mpv.load_file(&path, true);
+    }
 
     loop {
-        if idle {
-            // Start or restart idle splash (also handles mpv crash recovery)
-            if !idle_started || has_exited(&mut current) {
-                kill_child(&mut current);
-                current = start_idle();
-                idle_started = true;
+        if !mpv.is_alive() {
+            log::warn!("mpv crashed, restarting...");
+            mpv = Mpv::spawn()?;
+            idle = true;
+            let splash = read_splash();
+            if let Some(path) = splash_path(&splash) {
+                log::info!("Idle: {}", path);
+                mpv.load_file(&path, true);
             }
+        }
+
+        if idle {
+            // Drain events while idle (nothing to act on)
+            let _ = mpv.poll_idle();
         } else {
-            // Playing a button video — check if it has finished
-            if has_exited(&mut current) || current.is_none() {
-                kill_child(&mut current);
+            // Playing a button video — return to idle when it finishes
+            if mpv.poll_idle() {
                 idle = true;
-                idle_started = false; // will trigger start_idle on next tick
+                let splash = read_splash();
+                if let Some(path) = splash_path(&splash) {
+                    log::info!("Idle: {}", path);
+                    mpv.load_file(&path, true);
+                }
             }
         }
 
@@ -315,14 +433,9 @@ fn main() -> Result<()> {
                 match video_path {
                     None => log::warn!("Slot {slot} has no video assigned"),
                     Some(path) => {
-                        // Interrupt any current video or idle splash
-                        kill_child(&mut current);
-                        idle = false;
-                        idle_started = false;
                         log::info!("Playing: {}", path);
-                        current = Command::new("mpv")
-                            .args(["--fullscreen", "--no-terminal", &path])
-                            .spawn().ok();
+                        mpv.load_file(&path, false);
+                        idle = false;
                     }
                 }
 
