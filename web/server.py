@@ -1,13 +1,95 @@
 #!/usr/bin/env python3
 """PiVideo web UI — manage video slots and idle splash."""
 
-import cgi
 import html
+import io
 import json
 import os
 import shutil
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+
+
+# ── Multipart parser (replaces removed cgi module) ─────────────────────────
+
+class _Field:
+    """One field from a multipart/form-data submission."""
+    __slots__ = ("name", "filename", "file", "_value")
+
+    def __init__(self, name, *, filename=None, file=None, value=None):
+        self.name     = name
+        self.filename = filename
+        self.file     = file
+        self._value   = value
+
+
+class _Form:
+    """Parsed multipart/form-data, mimicking the cgi.FieldStorage interface."""
+
+    def __init__(self, fields):
+        self._fields = fields
+
+    def getvalue(self, name, default=None):
+        f = self._fields.get(name)
+        return f._value if f is not None else default
+
+    def get(self, name):
+        return self._fields.get(name)
+
+
+def _parse_multipart(rfile, content_type, content_length):
+    boundary = None
+    for token in content_type.split(";"):
+        token = token.strip()
+        if token.lower().startswith("boundary="):
+            boundary = token[9:].strip('"')
+            break
+    if not boundary:
+        return _Form({})
+
+    data = rfile.read(content_length)
+    b = boundary.encode("ascii")
+    fields = {}
+
+    start = b"--" + b + b"\r\n"
+    if not data.startswith(start):
+        return _Form({})
+
+    for part in data[len(start):].split(b"\r\n--" + b):
+        if part.startswith(b"--"):
+            break
+        if part.startswith(b"\r\n"):
+            part = part[2:]
+
+        hdr_end = part.find(b"\r\n\r\n")
+        if hdr_end == -1:
+            continue
+
+        hdr_text = part[:hdr_end].decode("utf-8", errors="replace")
+        body     = part[hdr_end + 4:]
+
+        name = filename = None
+        for line in hdr_text.split("\r\n"):
+            if ":" not in line:
+                continue
+            key, _, val = line.partition(":")
+            if key.strip().lower() == "content-disposition":
+                for token in val.split(";"):
+                    token = token.strip()
+                    if token.startswith("name="):
+                        name = token[5:].strip('"')
+                    elif token.startswith("filename="):
+                        filename = token[9:].strip('"')
+
+        if not name:
+            continue
+
+        if filename:
+            fields[name] = _Field(name, filename=filename, file=io.BytesIO(body))
+        else:
+            fields[name] = _Field(name, value=body.decode("utf-8", errors="replace"))
+
+    return _Form(fields)
 
 
 # ── Environment detection ──────────────────────────────────────────────────
@@ -298,11 +380,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         length = int(self.headers.get("Content-Length", 0))
-        form = cgi.FieldStorage(
-            fp=self.rfile, headers=self.headers,
-            environ={"REQUEST_METHOD": "POST", "CONTENT_TYPE": ct,
-                     "CONTENT_LENGTH": str(length)},
-        )
+        form = _parse_multipart(self.rfile, ct, length)
 
         splash_kind = form.getvalue("splash")  # "image" | "video" | None
 
