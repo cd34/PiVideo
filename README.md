@@ -56,6 +56,8 @@ All buttons share a common ground. Connect the ground side of each button to a g
 
 If you are using illuminated buttons, use a second terminal strip as a 3.3V power bus — run one wire from Pi Pin 1 or Pin 17 (3.3V) to the strip, then a short wire from the strip to each button's LED+ terminal. This keeps wiring tidy and avoids running seven individual wires back to the Pi.
 
+> **Important:** The GND bus and the LED power bus carry different voltages. Keep them physically separated — they must not touch. Secure both strips so they cannot shift or vibrate into contact with each other (hot glue, cable ties, or mounting to the enclosure wall all work well).
+
 ### Using the GPIO Screw Terminal HAT
 
 The GPIO Screw Terminal HAT plugs directly onto the Pi's 40-pin header. Each GPIO pin becomes a labeled screw terminal — no soldering required.
@@ -85,7 +87,7 @@ Changes take effect instantly — no restart required.
 
 ### Supported video formats
 
-`.mp4` is recommended. The following formats are also accepted:
+**1080p H.264 `.mp4` is recommended.** The Raspberry Pi hardware decoder handles 1080p smoothly with minimal CPU load. 4K is not recommended — it requires software decoding and will stutter. The following formats are also accepted:
 
 | Format | Extension(s) |
 |--------|-------------|
