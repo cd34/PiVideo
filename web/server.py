@@ -330,7 +330,7 @@ def render_page(message="", error=""):
 </head>
 <body>
   <h1>PiVideo</h1>
-  <p class="sub">Assign videos to buttons. Preferred format: <strong>.mp4</strong>. Also accepted: {html.escape(", ".join(sorted(ALLOWED_EXTS - {{".mp4"}})))}</p>
+  <p class="sub">Assign videos to buttons. Preferred format: <strong>.mp4</strong>. Also accepted: {html.escape(", ".join(sorted(ALLOWED_EXTS - {".mp4"})))}</p>
   {reboot_html}{msg_html}{err_html}
   <h2>Idle Screen</h2>
   {splash_html}
