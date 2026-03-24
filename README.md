@@ -173,59 +173,67 @@ web/          Python web UI for uploading and managing videos
 
 ## Building from Source
 
-### Prerequisites
+**No special hardware is required to build, test, or release PiVideo.** The entire build pipeline runs on GitHub Actions — forking the repo and pushing a tag is enough to produce a flashable `.img.xz`.
 
-- Rust toolchain with `aarch64-unknown-linux-gnu` target
-- Python 3
+### Fork and deploy your own copy
 
-### Commands
+1. **Fork** this repo on GitHub.
+
+2. **Generate a GPG signing key** (needed to sign the apt repo):
+   ```bash
+   bash scripts/gen-signing-key.sh
+   ```
+   Follow the printed instructions:
+   - Store the private key in your fork's **Settings → Secrets and variables → Actions** as `GPG_PRIVATE_KEY`
+   - The public key is written to `image/rootfs-overlay/etc/apt/trusted.gpg.d/pivideo.asc` — commit it
+   - Copy the fingerprint into `reprepro/conf/distributions`, replacing `FILL_IN_KEY_FINGERPRINT`
+   ```bash
+   git add image/rootfs-overlay/etc/apt/trusted.gpg.d/pivideo.asc reprepro/conf/distributions
+   git commit -m "Add apt signing key"
+   git push
+   ```
+
+3. **Enable GitHub Pages** in your fork's **Settings → Pages** — set source to the `gh-pages` branch.
+
+4. **Tag a release** to trigger the build:
+   ```bash
+   echo "1.0.0" > VERSION
+   git add VERSION && git commit -m "Release v1.0.0"
+   git tag v1.0.0
+   git push && git push --tags
+   ```
+
+GitHub Actions cross-compiles the daemon, builds the `.deb`, downloads the latest Raspberry Pi OS Lite, injects the overlay, compresses the image, publishes the apt repo to `gh-pages`, and creates a GitHub Release — all automatically. No Pi, no local toolchain required.
+
+5. **Add your fork's os_list.json to Pi Imager** (App Options → Content Repository):
+   ```
+   https://<your-github-username>.github.io/<your-repo-name>/os_list.json
+   ```
+
+### Running tests locally
+
+Tests only require Rust and Python 3 — no Pi hardware needed.
 
 ```bash
-make build    # compile daemon (local, for development)
-make test     # run tests
-make deb      # build pivideo_VERSION_arm64.deb (requires aarch64 binary + dpkg-dev)
+make test     # cargo test (daemon) + python3 web/test_server.py
+```
+
+### Local build commands
+
+```bash
+make build    # compile daemon for host (development only)
+make deb      # build pivideo_VERSION_arm64.deb (requires cross-toolchain + dpkg-dev)
 make image    # cross-compile, build .deb, and assemble rootfs overlay
 make clean    # clean build artifacts
 ```
 
-`make image` cross-compiles the daemon, builds the `.deb`, copies the web server, generates a default `config.json`, and assembles `image/rootfs-overlay/`. The final `.img.xz` is produced by CI: it downloads the latest Raspberry Pi OS Lite, mounts it, and injects the overlay. Tag a release to trigger this automatically.
+`make deb` and `make image` require the aarch64 cross-compilation toolchain — see the [Build Requirements](#appendix-build-requirements) appendix. These are optional; CI handles the full build on every tag.
 
 ### Releasing updates to deployed kiosks
 
-PiVideo uses a self-hosted apt repository on GitHub Pages so deployed kiosks receive daemon and web server updates automatically via `unattended-upgrades` — no reflashing required.
+PiVideo uses a self-hosted apt repository on GitHub Pages. Deployed kiosks receive updates automatically via `unattended-upgrades` — no reflashing required. Push a new tag and CI handles everything.
 
-**One-time setup (do this before your first release):**
-
-1. Generate a GPG signing key:
-   ```bash
-   bash scripts/gen-signing-key.sh
-   ```
-2. Follow the printed instructions:
-   - Store the private key in GitHub repo **Settings → Secrets → Actions** as `GPG_PRIVATE_KEY`
-   - The public key is written to `image/rootfs-overlay/etc/apt/trusted.gpg.d/pivideo.asc` — commit it
-   - Copy the fingerprint into `reprepro/conf/distributions`, replacing `FILL_IN_KEY_FINGERPRINT`
-3. Commit and push:
-   ```bash
-   git add image/rootfs-overlay/etc/apt/trusted.gpg.d/pivideo.asc reprepro/conf/distributions
-   git commit -m "Add apt signing key and repo config"
-   git push
-   ```
-4. In GitHub repo **Settings → Pages**, set the source to the `gh-pages` branch.
-
-**To publish a release:**
-
-```bash
-# Bump the version
-echo "1.1.0" > VERSION
-git add VERSION
-git commit -m "Release v1.1.0"
-git tag v1.1.0
-git push && git push --tags
-```
-
-GitHub Actions builds the `.deb`, signs it, publishes it to the `gh-pages` apt repo, and creates a GitHub Release. Deployed kiosks pick it up on their next nightly `unattended-upgrades` run. The postinst script restarts both services automatically.
-
-For local testing without Pi Imager, bake in deployment settings:
+For local testing with a baked-in WiFi/hostname (skips Pi Imager):
 
 ```bash
 cp image/config.env.example image/config.env

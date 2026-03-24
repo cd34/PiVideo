@@ -105,7 +105,7 @@ jobs:
           reprepro -b /tmp/apt-repo remove bookworm pivideo || true
           reprepro -b /tmp/apt-repo includedeb bookworm build/pivideo_*.deb
 
-          IMAGE_URL="https://github.com/cd34/PiVideo/releases/download/${GITHUB_REF_NAME}/pivideo_${IMG_VERSION}_arm64.img.xz"
+          IMAGE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/pivideo_${IMG_VERSION}_arm64.img.xz"
           RELEASE_DATE=$(date -u +%Y-%m-%d)
           jq -n \
             --arg url "$IMAGE_URL" \
