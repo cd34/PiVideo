@@ -28,37 +28,6 @@ A selector interface is planned to support more than 7 videos on the same hardwa
 
 See the **[Pi Imager Setup Guide](SETUP.md)** for a step-by-step walkthrough with screenshots.
 
-### Download Raspberry Pi Imager
-
-**[raspberrypi.com/software](https://www.raspberrypi.com/software/)** — available for Windows, macOS, and Linux.
-
-### Add the PiVideo repository
-
-In Raspberry Pi Imager, open **App Options** (gear icon, top right) → **Content Repository** → **Edit** → paste in:
-
-```
-https://cd34.github.io/PiVideo/os_list.json
-```
-
-Click **OK**. PiVideo will now appear in the **Choose OS** list.
-
-### Flash the SD card
-
-1. Open Raspberry Pi Imager
-2. **Choose Device** → select your Pi model
-3. **Choose OS** → select **PiVideo**
-4. **Choose Storage** → select your SD card
-5. Click **Next** — when asked *"Would you like to apply OS customisation settings?"* click **Edit Settings**
-6. Fill in the **General** tab:
-   - **Hostname** — the Pi will be reachable at `http://<hostname>.local:8080`
-     - Pick something short and descriptive for the installation location, e.g. `dam-construction` or `glacier-trailhead`
-     - Must be **unique on your network** — if two Pis share a hostname, neither will be reliably reachable
-     - Letters, numbers, and hyphens only — no spaces, underscores, dots, or other punctuation; cannot start or end with a hyphen; maximum 63 characters
-   - **Username and password** — credentials for SSH access
-   - **Configure wireless LAN** — WiFi SSID, password, and country code
-7. On the **Services** tab: enable **SSH** → *Use password authentication*
-8. Click **Save** → **Yes** → **Yes** to write
-
 Insert the SD card, power on the Pi, and wait about 2 minutes. First boot runs a full system update before the unit comes online.
 
 ---
