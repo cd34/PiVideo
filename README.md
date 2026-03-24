@@ -26,19 +26,27 @@ A selector interface is planned to support more than 7 videos on the same hardwa
 
 ## 1. Install
 
+See the **[Pi Imager Setup Guide](SETUP.md)** for a step-by-step walkthrough with screenshots.
+
 ### Download Raspberry Pi Imager
 
 **[raspberrypi.com/software](https://www.raspberrypi.com/software/)** — available for Windows, macOS, and Linux.
 
-### Download the PiVideo image
+### Add the PiVideo repository
 
-Download the latest `pivideo.img.xz` from the [GitHub Releases page](https://github.com/cd34/PiVideo/releases/latest).
+In Raspberry Pi Imager, open **App Options** (gear icon, top right) → **Content Repository** → **Edit** → paste in:
+
+```
+https://cd34.github.io/PiVideo/os_list.json
+```
+
+Click **OK**. PiVideo will now appear in the **Choose OS** list.
 
 ### Flash the SD card
 
 1. Open Raspberry Pi Imager
 2. **Choose Device** → select your Pi model
-3. **Choose OS** → scroll to the bottom → **Use custom** → select `pivideo.img.xz`
+3. **Choose OS** → select **PiVideo**
 4. **Choose Storage** → select your SD card
 5. Click **Next** — when asked *"Would you like to apply OS customisation settings?"* click **Edit Settings**
 6. Fill in the **General** tab:
