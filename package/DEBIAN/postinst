@@ -1,4 +1,12 @@
 #!/bin/bash
 set -e
+
+# Suppress login prompt on HDMI display
+systemctl mask getty@tty1.service 2>/dev/null || true
+
+# Suppress kernel messages on console
+dmesg -n 1 2>/dev/null || true
+
 systemctl daemon-reload
+systemctl enable pivideo.service pivideo-web.service 2>/dev/null || true
 systemctl restart pivideo.service pivideo-web.service 2>/dev/null || true

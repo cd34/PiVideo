@@ -1,7 +1,11 @@
 #!/bin/bash
 set -e
 case "$1" in
-  remove|upgrade|deconfigure)
+  remove|purge)
+    systemctl stop pivideo.service pivideo-web.service 2>/dev/null || true
+    systemctl unmask getty@tty1.service 2>/dev/null || true
+    ;;
+  upgrade|deconfigure)
     systemctl stop pivideo.service pivideo-web.service 2>/dev/null || true
     ;;
 esac
