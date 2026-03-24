@@ -1,5 +1,9 @@
 # PiVideo
 
+[![Daemon CI](https://github.com/cd34/PiVideo/actions/workflows/daemon.yml/badge.svg)](https://github.com/cd34/PiVideo/actions/workflows/daemon.yml)
+[![Web CI](https://github.com/cd34/PiVideo/actions/workflows/web.yml/badge.svg)](https://github.com/cd34/PiVideo/actions/workflows/web.yml)
+[![Release](https://github.com/cd34/PiVideo/actions/workflows/release.yml/badge.svg)](https://github.com/cd34/PiVideo/actions/workflows/release.yml)
+
 A Raspberry Pi kiosk system that plays videos when physical buttons are pressed. Designed for National Parks, museums, and similar venues — press a button, watch a video. Supports up to 7 buttons.
 
 Videos are managed through a browser-based interface: upload a file, assign it to a button, done. No renaming, no command line.
