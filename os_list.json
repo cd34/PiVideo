@@ -1,0 +1,15 @@
+{
+  "os_list": [
+    {
+      "name": "PiVideo",
+      "description": "GPIO-triggered video kiosk for museums and visitor centers. Press a button, watch a video.",
+      "url": "https://github.com/cd34/PiVideo/releases/download/v1.0.1/pivideo_1.0.1_arm64.img.xz",
+      "extract_size": 2986344448,
+      "extract_sha256": "5309d7d5392eff4af53e5ebcd79133df3d45b1c8a2e14f72269801a82a5031ab",
+      "image_download_size": 581463864,
+      "image_download_sha256": "cfef320f33337fa3b9228d0ff327e341f0dcf12d7ea449208f69952ad596176e",
+      "release_date": "2026-03-24",
+      "os_customisation_supported": true
+    }
+  ]
+}

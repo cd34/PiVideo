@@ -4,26 +4,26 @@ Hash: SHA512
 Origin: PiVideo
 Label: PiVideo
 Codename: bookworm
-Date: Mon, 23 Mar 2026 23:14:44 UTC
+Date: Tue, 24 Mar 2026 01:55:34 UTC
 Architectures: arm64
 Components: main
 Description: PiVideo kiosk software
 MD5Sum:
- 07872f739fa17e7c2fea00a61843eacc 570 main/binary-arm64/Packages
- 91131360a5efec33ee04db187b8ad108 423 main/binary-arm64/Packages.gz
+ 5bdb8b1b013a09355097a4b0082f505f 570 main/binary-arm64/Packages
+ c9589e2fe1da2285d38434109d01fd0f 420 main/binary-arm64/Packages.gz
  d510d1f32fa7385c38963ce91f9861bc 103 main/binary-arm64/Release
 SHA1:
- a900c57520614d482bd14ed234bcca0d8f4e80d4 570 main/binary-arm64/Packages
- 897c15a8c619b7433f5d5540c4a5936c604cf7b8 423 main/binary-arm64/Packages.gz
+ 10e0240d6874267f02f73d786ecc9dcae7363464 570 main/binary-arm64/Packages
+ c4a5b38741966d0cad09d410327b2e8c748f4e0a 420 main/binary-arm64/Packages.gz
  2bb19b2ea8c5cfdb5c306e98af4924744f566abb 103 main/binary-arm64/Release
 SHA256:
- 39f41270a5e5ee4647b4c66b852ee61a762861380efdf7d8692f4779d3939a81 570 main/binary-arm64/Packages
- 717aa607a06b011a2dfc3b3df07a3a48c98c9413b2a2fafcda552d75d9f1e3b3 423 main/binary-arm64/Packages.gz
+ 1c5ee406cdd514e5632fa8c24b502bb99ae521b349fce00a8663c47e17634aef 570 main/binary-arm64/Packages
+ b6b99dab54eb1227677949520df6a0a4436217588c3ac527e7502cdbd6d0f2ad 420 main/binary-arm64/Packages.gz
  816c6bf2495350b8dec08f7f4e46e3cd6c152401afd91ef63d014f35911746ca 103 main/binary-arm64/Release
 -----BEGIN PGP SIGNATURE-----
 
-iHUEARYKAB0WIQTgL8Ue2U/XogbIdHLqsYG++cPmRQUCacHJZAAKCRDqsYG++cPm
-RW1hAP9XY/8MAox3Gv/NvyucwKQkQsgh5nAGvxRC+VEdeJ491QD/ZPkF9MQC0QUW
-KQkKSHm86ijZlhWUqsUAYjhcakooMwg=
-=oSM4
+iHUEARYKAB0WIQTgL8Ue2U/XogbIdHLqsYG++cPmRQUCacHvFgAKCRDqsYG++cPm
+RRELAQDNLC+e3COvtZQFFEKQ/yON/HSC+nan/mN4IdUkz8codQD/ZB4Vfq0OOMlQ
+QkXQtCPwdxqc8qkm++dm+3h6/OQHYAw=
+=bV9g
 -----END PGP SIGNATURE-----
