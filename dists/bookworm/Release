@@ -1,19 +1,19 @@
 Origin: PiVideo
 Label: PiVideo
 Codename: bookworm
-Date: Tue, 24 Mar 2026 03:08:51 UTC
+Date: Tue, 24 Mar 2026 03:20:44 UTC
 Architectures: arm64
 Components: main
 Description: PiVideo kiosk software
 MD5Sum:
- 8db8149bf749be20f7e0b47223292bfd 570 main/binary-arm64/Packages
- 9f0eb2b1f79b5ea2c49e05870185a13d 421 main/binary-arm64/Packages.gz
+ 8e7993413cbc1580162c7c31ba1315c1 570 main/binary-arm64/Packages
+ 295d7ac23f1827bac5a23bdca2c41c7d 422 main/binary-arm64/Packages.gz
  d510d1f32fa7385c38963ce91f9861bc 103 main/binary-arm64/Release
 SHA1:
- 7208b32b400d8b243f7cc935d588f445231d62bb 570 main/binary-arm64/Packages
- 4cfa550ebb2ab3b81681c4899f13243d0f1c8731 421 main/binary-arm64/Packages.gz
+ f3540daf6e0683d59831a0f0b811d3d0675ca1e3 570 main/binary-arm64/Packages
+ 9eb1cdf57e95d260a4d2ea46eace247d6ad2494f 422 main/binary-arm64/Packages.gz
  2bb19b2ea8c5cfdb5c306e98af4924744f566abb 103 main/binary-arm64/Release
 SHA256:
- fcfc51e3da9e8a5a02e7640bde9d7029577c3ca86b7fed5759a7d62f8aa82000 570 main/binary-arm64/Packages
- 1ff7027e3e9fe449d061affbe89bb24a83ac05391c0ce943710d1961789c597c 421 main/binary-arm64/Packages.gz
+ 31847eebd6e3a97991d589e990c482231a9e607e3c406bd844f5612b8f746f11 570 main/binary-arm64/Packages
+ ec2f8f5663f522496efa3cbfcb45f93f814e2d819dfaed1c32c0d37203792b28 422 main/binary-arm64/Packages.gz
  816c6bf2495350b8dec08f7f4e46e3cd6c152401afd91ef63d014f35911746ca 103 main/binary-arm64/Release
