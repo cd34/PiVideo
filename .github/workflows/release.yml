@@ -114,7 +114,7 @@ jobs:
             --argjson download_size "$IMG_DOWNLOAD_SIZE" \
             --arg download_sha256 "$IMG_DOWNLOAD_SHA256" \
             --arg release_date "$RELEASE_DATE" \
-            '{"os_list": [{"name": "PiVideo", "description": "GPIO-triggered video kiosk for museums and visitor centers. Press a button, watch a video.", "url": $url, "extract_size": $extract_size, "extract_sha256": $extract_sha256, "image_download_size": $download_size, "image_download_sha256": $download_sha256, "release_date": $release_date, "os_customisation_supported": true}]}' \
+            '{"os_list": [{"name": "PiVideo", "description": "GPIO-triggered video kiosk for museums and visitor centers. Press a button, watch a video.", "url": $url, "extract_size": $extract_size, "extract_sha256": $extract_sha256, "image_download_size": $download_size, "image_download_sha256": $download_sha256, "release_date": $release_date, "init_format": "cloudinit-rpi", "os_customisation_supported": true}]}' \
             > /tmp/apt-repo/os_list.json
 
           cd /tmp/apt-repo
