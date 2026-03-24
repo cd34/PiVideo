@@ -415,8 +415,18 @@ One per video slot, up to 7. Any normally-open momentary contact switch works. T
 | White | [Adafruit](https://www.adafruit.com/product/558) | [Sparkfun](https://www.sparkfun.com/metal-pushbutton-momentary-16mm-white-1.html) |
 | Yellow | — | [Sparkfun](https://www.sparkfun.com/metal-pushbutton-momentary-16mm-yellow-1.html) |
 
-**Arcade-style buttons** — large, colorful, satisfying click. Popular for kiosks. No LED, no resistors, simple two-wire connection.
-- Search: *"arcade button 30mm momentary non-illuminated"*
+**Arcade-style buttons** — large, colorful, satisfying click. Popular for kiosks. Simple two-wire connection, no resistors needed. Available with or without LED illumination.
+
+| Color | Sparkfun (no LED) | Adafruit (with or without LED) |
+|-------|-------------------|-------------------------------|
+| Red | [Sparkfun](https://www.sparkfun.com/concave-button-red.html) | [Adafruit multi-pack](https://www.adafruit.com/product/3488) |
+| Blue | [Sparkfun](https://www.sparkfun.com/concave-button-blue.html) | [Adafruit multi-pack](https://www.adafruit.com/product/3488) |
+| Yellow | [Sparkfun](https://www.sparkfun.com/concave-button-yellow.html) | [Adafruit multi-pack](https://www.adafruit.com/product/3488) |
+| Black | [Sparkfun](https://www.sparkfun.com/concave-button-black.html) | [Adafruit multi-pack](https://www.adafruit.com/product/3488) |
+| White | [Sparkfun](https://www.sparkfun.com/concave-button-white.html) | [Adafruit multi-pack](https://www.adafruit.com/product/3488) |
+| Green | [Sparkfun](https://www.sparkfun.com/concave-button-green.html) | [Adafruit multi-pack](https://www.adafruit.com/product/3488) |
+
+The Adafruit link sells a pack of multiple colors, with and without LED rings. Arcade buttons use 0.25" (6.35mm) quick-connect terminals — pre-made 0.25" female quick-connect wires slip on directly, no crimping needed.
 
 **Any momentary switch** — any normally-open momentary contact switch works. If it has two terminals and closes a circuit when pressed, it will work.
 
