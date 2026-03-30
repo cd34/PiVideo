@@ -1,4 +1,5 @@
 daemon/target/
+__pycache__/
 *.img
 *.zip
 build/
