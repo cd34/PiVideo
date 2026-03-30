@@ -222,6 +222,17 @@ Plugs onto the Pi's 40-pin header; every pin becomes a labeled screw terminal. N
 - [Adafruit — Pi-EzConnect Terminal Block Breakout HAT](https://www.adafruit.com/product/2711)
 - [CZH Labs — Ultra Small RPi GPIO Terminal Block Breakout Board](https://czh-labs.com/products/ultra-small-rpi-gpio-terminal-block-breakout-board-module-for-raspberry-pi)
 
+**If using the Pi-EzConnect, also add:**
+
+| Item | Qty | Notes |
+|------|-----|-------|
+| Nylon standoff M2.5×12mm F-F | 4 | Mounts the HAT above the Pi |
+| Nylon screw M2.5×6mm | 4 | Secures HAT to standoffs |
+| Nylon nut M2.5 | 4 | |
+| Washer M2.5 | 4 | |
+
+The [Adafruit White Nylon Machine Screw and Stand-off Set (#3658)](https://www.adafruit.com/product/3658) contains all of the above.
+
 ### Momentary Push Buttons
 
 One per video slot, up to 7. Any normally-open momentary contact switch works. Three common options:
