@@ -4,17 +4,15 @@
 [![Web CI](https://github.com/cd34/PiVideo/actions/workflows/web.yml/badge.svg)](https://github.com/cd34/PiVideo/actions/workflows/web.yml)
 [![Release](https://github.com/cd34/PiVideo/actions/workflows/release.yml/badge.svg)](https://github.com/cd34/PiVideo/actions/workflows/release.yml)
 
-A Raspberry Pi kiosk system that plays videos when physical buttons are pressed. Designed for National Parks, museums, and similar venues — press a button, watch a video. Supports up to 7 buttons.
-
-Videos are managed through a browser-based interface: upload a file, assign it to a button, done. No renaming, no command line.
+A Raspberry Pi kiosk system for National Parks, museums, and similar venues. Upload up to 10 images and videos through a browser-based interface — they either loop as a kiosk slideshow or play on demand when a visitor presses a physical button. Supports up to 7 buttons.
 
 ### Modes
 
 | Mode | Setup | Behavior |
 |------|-------|----------|
-| **Splash image + buttons** | Upload an idle image; assign videos to buttons | A still image is displayed until a visitor presses a button, then the video plays fullscreen. Returns to the image when done. |
-| **Splash video + buttons** | Upload an idle video; assign videos to buttons | A looping video plays when idle. A button press immediately interrupts it and plays the assigned video. Returns to the looping video when done. |
-| **Single repeating video** | Upload an idle video; leave buttons empty | One video loops continuously — no buttons needed. |
+| **Kiosk slideshow** | Upload images and/or videos; leave all unassigned | Media loops continuously as a slideshow — no buttons needed. Videos play to completion; images display for 10 seconds each. |
+| **Kiosk + buttons** | Upload media; assign some to buttons, leave the rest unassigned | Unassigned media loops as a kiosk slideshow. A button press interrupts the slideshow and plays the assigned video. Returns to the slideshow when done. |
+| **Buttons only** | Upload videos; assign all to buttons | Screen is black until a visitor presses a button. The assigned video plays fullscreen, then the screen returns to black. |
 
 ### Why PiVideo?
 
@@ -75,53 +73,56 @@ For arcade-style buttons, use **0.25" quick-connect wires** — they slip direct
 
 ---
 
-## 3. Managing Videos
+## 3. Managing Media
 
 Open a browser and go to `http://<hostname>.local:8080`.
 
-![PiVideo web admin](docs/pivideo-web-admin.png)
+The page shows a **media library** (up to 10 files). Each entry displays the filename, file size, and a dropdown to assign it to a button or leave it in the kiosk rotation.
 
-The page shows all 7 button slots. Each slot displays the currently assigned video (or "no video assigned") and has an Upload button.
-
-- **Upload** — select a video file from your computer; it is assigned to that slot immediately
-- **Replace** — upload a new file to a slot that already has one
-- **Clear** — remove the assignment (the file stays on the Pi; the button simply does nothing until a new video is assigned)
+- **Upload** — select an image or video file; it is added to the library immediately
+- **Assign to button** — use the dropdown next to any media entry to assign it to a button (1–7). Assigned media plays on button press instead of appearing in the kiosk slideshow.
+- **Delete** — remove a file from the library and disk
 
 Changes take effect instantly — no restart required.
 
-### Supported video formats
+### Supported formats
 
-**1080p H.264 `.mp4` is recommended.** The Raspberry Pi hardware decoder handles 1080p smoothly with minimal CPU load. 4K is not recommended — it requires software decoding and will stutter. The following formats are also accepted:
+**1080p H.264 `.mp4` is recommended** for video. The Raspberry Pi hardware decoder handles 1080p smoothly with minimal CPU load. 4K is not recommended — it requires software decoding and will stutter.
 
-| Format | Extension(s) |
-|--------|-------------|
-| MPEG-4 | `.mp4`, `.m4v` |
-| Matroska | `.mkv` |
-| QuickTime | `.mov` |
-| WebM | `.webm` |
-| AVI | `.avi` |
-| Flash Video | `.flv` |
-| Windows Media | `.wmv` |
-| MPEG | `.mpg`, `.mpeg` |
-| Transport Stream | `.ts`, `.m2ts` |
-| Mobile | `.3gp` |
+| Type | Format | Extension(s) |
+|------|--------|-------------|
+| Video | MPEG-4 | `.mp4`, `.m4v` |
+| Video | Matroska | `.mkv` |
+| Video | QuickTime | `.mov` |
+| Video | WebM | `.webm` |
+| Video | AVI | `.avi` |
+| Video | Flash Video | `.flv` |
+| Video | Windows Media | `.wmv` |
+| Video | MPEG | `.mpg`, `.mpeg` |
+| Video | Transport Stream | `.ts`, `.m2ts` |
+| Video | Mobile | `.3gp` |
+| Image | JPEG | `.jpg`, `.jpeg` |
+| Image | PNG | `.png` |
+| Image | WebP | `.webp` |
+| Image | BMP | `.bmp` |
+| Image | GIF | `.gif` |
 
 ### Admin machine folder layout
 
-Keep a folder on your admin machine named after each Pi's hostname. This makes it easy to manage multiple deployments and re-upload videos if a Pi needs to be reflashed.
+Keep a folder on your admin machine named after each Pi's hostname. This makes it easy to manage multiple deployments and re-upload media if a Pi needs to be reflashed.
 
 ```
 ~/pivideo/
   glacier-visitor-center/
-    videos/
-      button1_glacier_intro.mp4
-      button2_wildlife.mp4
-      button3_trail_map.mp4
+    glacier_intro.mp4        → assigned to Button 1
+    wildlife.mp4             → assigned to Button 2
+    trail_map.jpg            → kiosk rotation
+    welcome_loop.mp4         → kiosk rotation
 
   canyon-trailhead/
-    videos/
-      button1_welcome.mp4
-      button2_safety.mp4
+    welcome.mp4              → assigned to Button 1
+    safety.mp4               → assigned to Button 2
+    canyon_panorama.jpg       → kiosk rotation
 ```
 
 ---
@@ -235,7 +236,7 @@ The [Adafruit White Nylon Machine Screw and Stand-off Set (#3658)](https://www.a
 
 ### Momentary Push Buttons
 
-One per video slot, up to 7. Any normally-open momentary contact switch works. Three common options:
+One per button-assigned video, up to 7. Any normally-open momentary contact switch works. Three common options:
 
 **Metal pushbuttons with LED ring (recommended)** — chrome-plated, 16mm panel-mount, rated for heavy use. The built-in LED is optional; the switch works without it. See [wiring-led.svg](wiring-led.svg) for LED wiring details (connect LED+ to 3.3V, LED− to GND — LEDs are always on, no software changes needed). The Sparkfun and Adafruit buttons listed below have a built-in current-limiting resistor, so no external resistor is required. If you use a different LED switch that lacks one, add a 150 Ω resistor in series with LED+.
 

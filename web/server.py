@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PiVideo web UI — manage video slots and idle splash."""
+"""PiVideo web UI — manage media library and button assignments."""
 
 import errno
 import html
@@ -131,8 +131,10 @@ PORT        = int(os.environ.get("PORT", 8080))
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
-# Slot number → hardware info (must match daemon/src/main.rs)
-SLOTS = {
+MAX_MEDIA = 10
+
+# Button number → hardware info (must match daemon/src/main.rs)
+BUTTONS = {
     1: {"gpio": 4,  "pin": 7},
     2: {"gpio": 17, "pin": 11},
     3: {"gpio": 22, "pin": 15},
@@ -142,22 +144,19 @@ SLOTS = {
     7: {"gpio": 27, "pin": 13},
 }
 
-ALLOWED_EXTS = {
+ALLOWED_VIDEO_EXTS = {
     ".mp4", ".mkv", ".mov", ".avi", ".webm",
     ".flv", ".wmv", ".mpg", ".mpeg", ".ts", ".m2ts", ".3gp", ".m4v",
 }
 
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif"}
 
-ACCEPT_VIDEO_ATTR = ",".join(sorted(ALLOWED_EXTS))
-ACCEPT_IMAGE_ATTR = ",".join(sorted(ALLOWED_IMAGE_EXTS))
+ALLOWED_EXTS = ALLOWED_VIDEO_EXTS | ALLOWED_IMAGE_EXTS
+
+ACCEPT_ALL_ATTR = ",".join(sorted(ALLOWED_EXTS))
 
 
 # ── Config I/O ─────────────────────────────────────────────────────────────
-
-def _default_slot(info):
-    return {"gpio": info["gpio"], "pin": info["pin"], "video": None}
-
 
 def _load_raw():
     """Return the full parsed config dict, or {} if missing/invalid."""
@@ -174,43 +173,71 @@ def _save_raw(raw):
     CONFIG_PATH.write_text(json.dumps(raw, indent=2) + "\n")
 
 
-def load_config():
-    """Return {slot_int: {gpio, pin, video}} for all 7 slots."""
+def _migrate_v1(raw):
+    """Convert a v1 config to v2 format. Returns a v2 dict."""
+    media = []
+    for slot_str in sorted(raw.keys()):
+        if slot_str in ("splash", "version"):
+            continue
+        if not slot_str.isdigit():
+            continue
+        entry = raw[slot_str]
+        if isinstance(entry, dict) and entry.get("video"):
+            media.append({"file": entry["video"], "button": int(slot_str)})
+        elif isinstance(entry, str) and entry:
+            media.append({"file": entry, "button": int(slot_str)})
+
+    splash = raw.get("splash", {})
+    if isinstance(splash, dict):
+        if splash.get("video"):
+            media.append({"file": splash["video"], "button": None})
+        if splash.get("image"):
+            media.append({"file": splash["image"], "button": None})
+
+    return {
+        "version": 2,
+        "media": media[:MAX_MEDIA],
+        "buttons": {str(k): v for k, v in BUTTONS.items()},
+    }
+
+
+def load_media():
+    """Return list of {"file": str, "button": int|None}, max 10."""
     raw = _load_raw()
-    config = {}
-    for slot_num, info in SLOTS.items():
-        entry = raw.get(str(slot_num), {})
-        if isinstance(entry, dict):
-            config[slot_num] = {
-                "gpio":  entry.get("gpio",  info["gpio"]),
-                "pin":   entry.get("pin",   info["pin"]),
-                "video": entry.get("video"),
-            }
+    if raw.get("version") != 2:
+        if raw:
+            raw = _migrate_v1(raw)
+            _save_raw(raw)
         else:
-            # migrate old string-value format
-            config[slot_num] = {**_default_slot(info), "video": entry or None}
-    return config
+            return []
+    media = raw.get("media", [])
+    result = []
+    for entry in media[:MAX_MEDIA]:
+        if isinstance(entry, dict) and "file" in entry:
+            btn = entry.get("button")
+            if btn is not None:
+                try:
+                    btn = int(btn)
+                except (ValueError, TypeError):
+                    btn = None
+                if btn not in BUTTONS:
+                    btn = None
+            result.append({"file": entry["file"], "button": btn})
+    return result
 
 
-def save_config(config):
+def save_media(media):
+    """Write media list to config."""
     raw = _load_raw()
-    for k in sorted(config):
-        raw[str(k)] = config[k]
+    raw["version"] = 2
+    raw["media"] = media[:MAX_MEDIA]
+    raw["buttons"] = {str(k): v for k, v in BUTTONS.items()}
     _save_raw(raw)
 
 
-def load_splash():
-    """Return {"image": str|None, "video": str|None}."""
-    s = _load_raw().get("splash", {})
-    if isinstance(s, dict):
-        return {"image": s.get("image"), "video": s.get("video")}
-    return {"image": None, "video": None}
-
-
-def save_splash(splash):
-    raw = _load_raw()
-    raw["splash"] = splash
-    _save_raw(raw)
+def _assigned_buttons(media):
+    """Return set of button numbers currently assigned."""
+    return {m["button"] for m in media if m["button"] is not None}
 
 
 def needs_reboot():
@@ -220,7 +247,7 @@ def needs_reboot():
 # ── HTML rendering ─────────────────────────────────────────────────────────
 
 def _file_info_html(filename, label_for_missing="&#9888; file missing"):
-    """Return (size_html) for a file in VIDEO_DIR."""
+    """Return size info for a file in VIDEO_DIR."""
     if filename:
         fpath = VIDEO_DIR / filename
         if fpath.exists():
@@ -230,89 +257,91 @@ def _file_info_html(filename, label_for_missing="&#9888; file missing"):
 
 
 def render_page(message="", error=""):
-    config = load_config()
-    splash = load_splash()
+    media = load_media()
+    assigned = _assigned_buttons(media)
 
-    # ── Splash section ─────────────────────────────────────────────────────
-    def splash_row(kind, current_file, accept_attr, allowed_exts, label):
-        if current_file:
-            size = _file_info_html(current_file)
-            current_html = f"""
-              <span class="fname">{html.escape(current_file)}</span>
-              <span class="fsize">{size}</span>
-              <form method="POST" action="/clear" style="display:inline">
-                <input type="hidden" name="splash" value="{kind}">
-                <button class="btn-clear"
-                  onclick="return confirm('Remove idle {label}?')">Clear</button>
-              </form>"""
-            upload_label = "Replace"
-        else:
-            current_html = f'<span class="empty">— none —</span>'
-            upload_label = "Upload"
+    # ── Media entries ──────────────────────────────────────────────────────
+    media_html = ""
+    for i, entry in enumerate(media):
+        fname = entry["file"]
+        btn = entry["button"]
+        size = _file_info_html(fname)
+        ext = os.path.splitext(fname)[1].lower()
+        is_image = ext in ALLOWED_IMAGE_EXTS
 
-        return f"""
-      <div class="slot-body splash-row">
-        <div class="splash-kind">{label}</div>
-        <div class="current">{current_html}</div>
-        <form class="upload-row" method="POST" action="/upload" enctype="multipart/form-data">
-          <input type="hidden" name="splash" value="{kind}">
-          <input type="file" name="file" accept="{accept_attr}" required>
-          <button class="btn-upload">{upload_label}</button>
-        </form>
-      </div>"""
+        # Button assignment dropdown
+        options = '<option value=""' + (' selected' if btn is None else '') + '>None — kiosk rotation</option>'
+        for b in sorted(BUTTONS):
+            taken = b in assigned and b != btn
+            sel = " selected" if b == btn else ""
+            dis = " disabled" if taken else ""
+            info = BUTTONS[b]
+            label = f"Button {b} (GPIO {info['gpio']}, Pin {info['pin']})"
+            if taken:
+                label += " — in use"
+            options += f'<option value="{b}"{sel}{dis}>{html.escape(label)}</option>'
 
-    splash_html = f"""
-    <div class="slot splash-section">
-      <div class="slot-head">
-        <span class="slot-title">Idle Screen</span>
-        <span class="slot-meta">shown when no button video is playing</span>
-      </div>
-      {splash_row("video", splash.get("video"), ACCEPT_VIDEO_ATTR, ALLOWED_EXTS, "Idle video (loops)")}
-      {splash_row("image", splash.get("image"), ACCEPT_IMAGE_ATTR, ALLOWED_IMAGE_EXTS, "Idle image (fallback)")}
-    </div>"""
+        role = f"Button {btn} (GPIO {BUTTONS[btn]['gpio']}, Pin {BUTTONS[btn]['pin']})" if btn else "Kiosk rotation"
+        kind = "image" if is_image else "video"
 
-    # ── Button slots ───────────────────────────────────────────────────────
-    slots_html = ""
-    for slot_num, info in SLOTS.items():
-        slot_cfg = config.get(slot_num, {})
-        assigned = slot_cfg.get("video")
-        gpio = slot_cfg.get("gpio", info["gpio"])
-        pin  = slot_cfg.get("pin",  info["pin"])
-
-        if assigned:
-            size = _file_info_html(assigned)
-            current_html = f"""
-              <span class="fname">{html.escape(assigned)}</span>
-              <span class="fsize">{size}</span>
-              <form method="POST" action="/clear" style="display:inline">
-                <input type="hidden" name="slot" value="{slot_num}">
-                <button class="btn-clear"
-                  onclick="return confirm('Remove video from Button {slot_num}?')">Clear</button>
-              </form>"""
-            upload_label = "Replace"
-        else:
-            current_html = '<span class="empty">— no video assigned —</span>'
-            upload_label = "Upload"
-
-        slots_html += f"""
+        media_html += f"""
       <div class="slot">
         <div class="slot-head">
-          <span class="slot-title">Button {slot_num}</span>
-          <span class="slot-meta">GPIO {gpio} &nbsp;&middot;&nbsp; Physical Pin {pin}</span>
+          <span class="slot-title">{html.escape(fname)}</span>
+          <span class="slot-meta">{size} &middot; {kind}</span>
         </div>
         <div class="slot-body">
-          <div class="current">{current_html}</div>
-          <form class="upload-row" method="POST" action="/upload" enctype="multipart/form-data">
-            <input type="hidden" name="slot" value="{slot_num}">
-            <input type="file" name="file" accept="{ACCEPT_VIDEO_ATTR}" required>
-            <button class="btn-upload">{upload_label}</button>
+          <form class="assign-row" method="POST" action="/assign">
+            <input type="hidden" name="index" value="{i}">
+            <label>Assign to:</label>
+            <select name="button" onchange="this.form.submit()">{options}</select>
           </form>
+          <div class="current">
+            <span class="role">{html.escape(role)}</span>
+            <form method="POST" action="/delete" style="display:inline">
+              <input type="hidden" name="index" value="{i}">
+              <button class="btn-clear"
+                onclick="return confirm('Remove {html.escape(fname, quote=True)}?')">Delete</button>
+            </form>
+          </div>
         </div>
       </div>"""
+
+    if not media:
+        media_html = '<p class="empty">No media uploaded yet. Use the form below to add images or videos.</p>'
+
+    # ── Upload form ────────────────────────────────────────────────────────
+    if len(media) >= MAX_MEDIA:
+        upload_html = f'<p class="msg">Library full ({MAX_MEDIA}/{MAX_MEDIA}). Delete a file to upload more.</p>'
+    else:
+        btn_options = '<option value="" selected>None — kiosk rotation</option>'
+        for b in sorted(BUTTONS):
+            taken = b in assigned
+            dis = " disabled" if taken else ""
+            info = BUTTONS[b]
+            label = f"Button {b} (GPIO {info['gpio']}, Pin {info['pin']})"
+            if taken:
+                label += " — in use"
+            btn_options += f'<option value="{b}"{dis}>{html.escape(label)}</option>'
+
+        upload_html = f"""
+      <form class="upload-form" method="POST" action="/upload" enctype="multipart/form-data">
+        <div class="upload-row">
+          <input type="file" name="file" accept="{ACCEPT_ALL_ATTR}" required>
+          <label>Assign to:</label>
+          <select name="button">{btn_options}</select>
+          <button class="btn-upload">Upload</button>
+        </div>
+        <p class="hint">Accepted: images ({', '.join(sorted(ALLOWED_IMAGE_EXTS))}) and videos ({', '.join(sorted(ALLOWED_VIDEO_EXTS))})</p>
+      </form>"""
 
     msg_html    = f'<p class="msg ok">{html.escape(message)}</p>' if message else ""
     err_html    = f'<p class="msg err">{html.escape(error)}</p>'   if error   else ""
     reboot_html = '<p class="msg reboot">&#9888; A reboot is required for recent updates to take effect.</p>' if needs_reboot() else ""
+
+    count = len(media)
+    kiosk_count = sum(1 for m in media if m["button"] is None)
+    button_count = count - kiosk_count
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -322,7 +351,7 @@ def render_page(message="", error=""):
   <title>PiVideo</title>
   <style>
     *,*::before,*::after{{box-sizing:border-box}}
-    body{{font-family:sans-serif;max-width:680px;margin:2rem auto;padding:0 1rem;color:#222}}
+    body{{font-family:sans-serif;max-width:720px;margin:2rem auto;padding:0 1rem;color:#222}}
     h1{{color:#2d6a4f;margin-bottom:.2rem}}
     .sub{{color:#666;font-size:.9rem;margin-bottom:1.5rem}}
     .msg{{padding:.5rem 1rem;border-radius:4px;margin-bottom:1rem}}
@@ -330,34 +359,37 @@ def render_page(message="", error=""):
     .err{{color:#9b2226;background:#fde8e8}}
     .reboot{{color:#7d4e00;background:#fff3cd}}
     .slot{{border:1px solid #ddd;border-radius:8px;margin-bottom:.75rem;overflow:hidden}}
-    .slot-head{{background:#f5f5f5;padding:.5rem 1rem;display:flex;justify-content:space-between;align-items:center}}
-    .slot-title{{font-weight:bold}}
-    .slot-meta{{font-family:monospace;font-size:.8rem;color:#888}}
+    .slot-head{{background:#f5f5f5;padding:.5rem 1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem}}
+    .slot-title{{font-weight:bold;font-family:monospace;font-size:.9rem}}
+    .slot-meta{{font-size:.8rem;color:#888}}
     .slot-body{{padding:.75rem 1rem;display:flex;flex-direction:column;gap:.6rem}}
+    .assign-row{{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}}
+    .assign-row label{{font-size:.85rem;color:#555}}
+    .assign-row select{{padding:.25rem .4rem;border-radius:4px;border:1px solid #ccc}}
     .current{{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;min-height:1.6rem}}
-    .fname{{font-family:monospace;font-size:.9rem}}
-    .fsize{{font-size:.8rem;color:#888}}
-    .empty{{color:#bbb;font-style:italic;font-size:.9rem}}
+    .role{{font-size:.85rem;color:#555}}
+    .empty{{color:#bbb;font-style:italic;font-size:.9rem;padding:1rem 0}}
+    .upload-form{{border:1px solid #ddd;border-radius:8px;padding:1rem;background:#fafafa}}
     .upload-row{{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}}
+    .upload-row label{{font-size:.85rem;color:#555}}
+    .upload-row select{{padding:.25rem .4rem;border-radius:4px;border:1px solid #ccc}}
+    .hint{{font-size:.8rem;color:#999;margin:.5rem 0 0}}
     button{{cursor:pointer;padding:.35rem .8rem;border:none;border-radius:4px;font-size:.85rem}}
     .btn-upload{{background:#2d6a4f;color:#fff}}
     .btn-clear{{background:#e5383b;color:#fff}}
-    .splash-section .slot-head{{background:#eef4fb}}
-    .splash-row{{border-top:1px solid #eee;display:grid;grid-template-columns:10rem 1fr auto;align-items:center;gap:.75rem;padding:.6rem 1rem}}
-    .splash-row:first-of-type{{border-top:none}}
-    .splash-kind{{font-size:.85rem;color:#555}}
-    .splash-row .upload-row{{justify-content:flex-end}}
     h2{{font-size:1rem;color:#555;margin:1.25rem 0 .5rem;text-transform:uppercase;letter-spacing:.05em}}
+    .summary{{font-size:.85rem;color:#666;margin-bottom:.75rem}}
   </style>
 </head>
 <body>
   <h1>PiVideo</h1>
-  <p class="sub">Assign videos to buttons. Preferred format: <strong>.mp4</strong>. Also accepted: {html.escape(", ".join(sorted(ALLOWED_EXTS - {".mp4"})))}</p>
+  <p class="sub">Upload images and videos, then optionally assign them to buttons.</p>
   {reboot_html}{msg_html}{err_html}
-  <h2>Idle Screen</h2>
-  {splash_html}
-  <h2>Buttons</h2>
-  {slots_html}
+  <h2>Media Library ({count}/{MAX_MEDIA})</h2>
+  <p class="summary">{kiosk_count} in kiosk rotation, {button_count} assigned to buttons</p>
+  {media_html}
+  <h2>Upload New Media</h2>
+  {upload_html}
 </body>
 </html>"""
 
@@ -390,8 +422,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == "/upload":
             self._handle_upload()
-        elif self.path == "/clear":
-            self._handle_clear()
+        elif self.path == "/assign":
+            self._handle_assign()
+        elif self.path == "/delete":
+            self._handle_delete()
         else:
             self.send_html("<h1>Not Found</h1>", 404)
 
@@ -411,22 +445,6 @@ class Handler(BaseHTTPRequestHandler):
 
         form = _parse_multipart(self.rfile, ct, length)
 
-        splash_kind = form.getvalue("splash")  # "image" | "video" | None
-
-        if splash_kind in ("image", "video"):
-            self._upload_splash(form, splash_kind)
-        else:
-            self._upload_slot(form)
-
-    def _upload_slot(self, form):
-        try:
-            slot = int(form.getvalue("slot", 0))
-        except (ValueError, TypeError):
-            slot = 0
-        if slot not in SLOTS:
-            self.send_html(render_page(error="Invalid slot."), 400)
-            return
-
         field = form.get("file")
         if not field or not field.filename:
             self.send_html(render_page(error="No file selected."), 400)
@@ -445,55 +463,24 @@ class Handler(BaseHTTPRequestHandler):
             )
             return
 
-        dest = VIDEO_DIR / filename
-        try:
-            VIDEO_DIR.mkdir(parents=True, exist_ok=True)
-            with open(dest, "wb") as f:
-                shutil.copyfileobj(field.file, f)
-        except OSError as e:
-            dest.unlink(missing_ok=True)
-            if e.errno == errno.ENOSPC:
-                self.send_html(render_page(error="Not enough space on the SD card to save this file."), 507)
-            else:
-                self.send_html(render_page(error=f"Could not save file: {e.strerror}"), 500)
+        media = load_media()
+        if len(media) >= MAX_MEDIA:
+            self.send_html(render_page(error=f"Library full ({MAX_MEDIA}/{MAX_MEDIA}). Delete a file first."), 400)
             return
 
-        try:
-            config = load_config()
-            config[slot]["video"] = filename
-            save_config(config)
-        except OSError as e:
-            dest.unlink(missing_ok=True)
-            self.send_html(render_page(error=f"Could not update configuration: {e.strerror}"), 500)
-            return
-
-        self.redirect()
-
-    def _upload_splash(self, form, kind):
-        field = form.get("file")
-        if not field or not field.filename:
-            self.send_html(render_page(error="No file selected."), 400)
-            return
-
-        filename, err = _sanitize_filename(field.filename)
-        if err:
-            self.send_html(render_page(error=err), 400)
-            return
-
-        ext = os.path.splitext(filename)[1].lower()
-        if kind == "image":
-            if ext not in ALLOWED_IMAGE_EXTS:
-                self.send_html(
-                    render_page(error=f"Unsupported image format '{ext}'. Allowed: {', '.join(sorted(ALLOWED_IMAGE_EXTS))}"),
-                    400,
-                )
+        # Parse optional button assignment
+        btn_str = form.getvalue("button", "")
+        btn = None
+        if btn_str:
+            try:
+                btn = int(btn_str)
+            except (ValueError, TypeError):
+                btn = None
+            if btn is not None and btn not in BUTTONS:
+                self.send_html(render_page(error="Invalid button number."), 400)
                 return
-        else:  # video
-            if ext not in ALLOWED_EXTS:
-                self.send_html(
-                    render_page(error=f"Unsupported format '{ext}'. Allowed: {', '.join(sorted(ALLOWED_EXTS))}"),
-                    400,
-                )
+            if btn is not None and btn in _assigned_buttons(media):
+                self.send_html(render_page(error=f"Button {btn} is already assigned."), 400)
                 return
 
         dest = VIDEO_DIR / filename
@@ -509,10 +496,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_html(render_page(error=f"Could not save file: {e.strerror}"), 500)
             return
 
+        media.append({"file": filename, "button": btn})
         try:
-            splash = load_splash()
-            splash[kind] = filename
-            save_splash(splash)
+            save_media(media)
         except OSError as e:
             dest.unlink(missing_ok=True)
             self.send_html(render_page(error=f"Could not update configuration: {e.strerror}"), 500)
@@ -520,31 +506,66 @@ class Handler(BaseHTTPRequestHandler):
 
         self.redirect()
 
-    def _handle_clear(self):
+    def _handle_assign(self):
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length).decode()
         params = dict(p.split("=", 1) for p in body.split("&") if "=" in p)
 
-        splash_kind = params.get("splash")
-
-        if splash_kind in ("image", "video"):
-            splash = load_splash()
-            splash[splash_kind] = None
-            save_splash(splash)
-            self.redirect()
-            return
+        media = load_media()
 
         try:
-            slot = int(params.get("slot", 0))
-        except ValueError:
-            slot = 0
-        if slot not in SLOTS:
-            self.send_html(render_page(error="Invalid slot."), 400)
+            index = int(params.get("index", -1))
+        except (ValueError, TypeError):
+            index = -1
+        if index < 0 or index >= len(media):
+            self.send_html(render_page(error="Invalid media index."), 400)
             return
 
-        config = load_config()
-        config[slot]["video"] = None
-        save_config(config)
+        btn_str = params.get("button", "")
+        btn = None
+        if btn_str:
+            try:
+                btn = int(btn_str)
+            except (ValueError, TypeError):
+                btn = None
+            if btn is not None and btn not in BUTTONS:
+                self.send_html(render_page(error="Invalid button number."), 400)
+                return
+            if btn is not None:
+                assigned = _assigned_buttons(media)
+                current_btn = media[index]["button"]
+                if current_btn is not None:
+                    assigned.discard(current_btn)
+                if btn in assigned:
+                    self.send_html(render_page(error=f"Button {btn} is already assigned."), 400)
+                    return
+
+        media[index]["button"] = btn
+        save_media(media)
+        self.redirect()
+
+    def _handle_delete(self):
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length).decode()
+        params = dict(p.split("=", 1) for p in body.split("&") if "=" in p)
+
+        media = load_media()
+
+        try:
+            index = int(params.get("index", -1))
+        except (ValueError, TypeError):
+            index = -1
+        if index < 0 or index >= len(media):
+            self.send_html(render_page(error="Invalid media index."), 400)
+            return
+
+        removed = media.pop(index)
+        save_media(media)
+
+        # Delete the file from disk
+        fpath = VIDEO_DIR / removed["file"]
+        fpath.unlink(missing_ok=True)
+
         self.redirect()
 
 
@@ -552,8 +573,10 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     VIDEO_DIR.mkdir(parents=True, exist_ok=True)
-    if not CONFIG_PATH.exists():
-        save_config({s: _default_slot(SLOTS[s]) for s in SLOTS})
+    # Migrate on startup if needed
+    raw = _load_raw()
+    if raw and raw.get("version") != 2:
+        _save_raw(_migrate_v1(raw))
 
     server = HTTPServer(("", PORT), Handler)
     print(f"PiVideo  http://0.0.0.0:{PORT}")

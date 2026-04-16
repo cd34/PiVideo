@@ -11,16 +11,29 @@ const DEFAULT_CONFIG: &str = "/opt/pivideo/config.json";
 const DEFAULT_VIDEO_DIR: &str = "/opt/pivideo/videos";
 const MPV_SOCKET: &str = "/tmp/pivideo-mpv.sock";
 
-#[derive(Deserialize, Default)]
-struct SplashConfig {
-    image: Option<String>,
-    video: Option<String>,
+// ── Config types ────────────────────────────────────────────────────────────
+
+#[derive(Deserialize, Clone)]
+struct MediaEntry {
+    file: String,
+    button: Option<u8>,
 }
 
 #[derive(Deserialize)]
-struct SlotConfig {
+struct ButtonConfig {
     gpio: u8,
-    video: Option<String>,
+    #[allow(dead_code)]
+    pin: Option<u8>,
+}
+
+#[derive(Deserialize)]
+struct Config {
+    #[allow(dead_code)]
+    version: Option<u8>,
+    #[serde(default)]
+    media: Vec<MediaEntry>,
+    #[serde(default)]
+    buttons: HashMap<String, ButtonConfig>,
 }
 
 fn config_path() -> String {
@@ -31,50 +44,48 @@ fn video_dir() -> String {
     env::var("PIVIDEO_VIDEO_DIR").unwrap_or_else(|_| DEFAULT_VIDEO_DIR.to_string())
 }
 
-/// Read slot configs from a config file at `path`.
-fn read_slots_from(path: &str) -> Result<HashMap<String, SlotConfig>> {
+/// Read the full config from a file at `path`.
+fn read_config_from(path: &str) -> Result<Config> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("Cannot read config: {}", path))?;
-    let raw: serde_json::Value = serde_json::from_str(&content)?;
-    Ok(raw.as_object()
-        .map(|obj| obj.iter()
-            .filter(|(k, _)| k.parse::<u8>().is_ok())
-            .filter_map(|(k, v)| {
-                serde_json::from_value::<SlotConfig>(v.clone())
-                    .ok()
-                    .map(|cfg| (k.clone(), cfg))
-            })
-            .collect())
-        .unwrap_or_default())
+    let config: Config = serde_json::from_str(&content)?;
+    Ok(config)
 }
 
-/// Read slot configs from config.json (gpio pin → video assignments).
-/// Called at startup for pin setup, and on each button press for current video.
-fn read_slots() -> Result<HashMap<String, SlotConfig>> {
-    read_slots_from(&config_path())
+/// Read the config from the default path.
+fn read_config() -> Result<Config> {
+    read_config_from(&config_path())
 }
 
-/// Read splash config from a config file at `path`.
-fn read_splash_from(path: &str) -> SplashConfig {
-    fs::read_to_string(path).ok()
-        .and_then(|c| serde_json::from_str::<serde_json::Value>(&c).ok())
-        .and_then(|v| v.get("splash").cloned())
-        .and_then(|v| serde_json::from_value(v).ok())
-        .unwrap_or_default()
-}
-
-/// Read splash config. Called when entering idle state so web UI changes
-/// to the splash image/video take effect without restarting the daemon.
-fn read_splash() -> SplashConfig {
-    read_splash_from(&config_path())
-}
-
-/// Resolve the splash config to a file path (video takes priority over image).
-fn splash_path(splash: &SplashConfig) -> Option<String> {
+/// Build a mapping from GPIO pin number to video file path for button-assigned media.
+fn button_map(config: &Config) -> HashMap<u8, String> {
     let dir = video_dir();
-    splash.video.as_ref()
-        .or(splash.image.as_ref())
-        .map(|f| format!("{}/{}", dir, f))
+    let mut map = HashMap::new();
+    for entry in &config.media {
+        if let Some(btn) = entry.button {
+            if let Some(bcfg) = config.buttons.get(&btn.to_string()) {
+                map.insert(bcfg.gpio, format!("{}/{}", dir, entry.file));
+            }
+        }
+    }
+    map
+}
+
+/// Build the kiosk playlist: file paths for media entries not assigned to a button.
+fn kiosk_playlist(config: &Config) -> Vec<String> {
+    let dir = video_dir();
+    config.media.iter()
+        .filter(|m| m.button.is_none())
+        .map(|m| format!("{}/{}", dir, m.file))
+        .collect()
+}
+
+/// Check if a file path has an image extension.
+fn is_image_file(path: &str) -> bool {
+    let lower = path.to_lowercase();
+    [".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif"]
+        .iter()
+        .any(|ext| lower.ends_with(ext))
 }
 
 // ── Persistent mpv instance with IPC control ────────────────────────────────
@@ -96,7 +107,7 @@ impl Mpv {
                 "--fullscreen",
                 "--no-terminal",
                 "--idle",
-                "--image-display-duration=inf",
+                "--image-display-duration=10",
                 &format!("--input-ipc-server={}", MPV_SOCKET),
             ])
             .spawn()
@@ -135,11 +146,25 @@ impl Mpv {
         Ok(())
     }
 
-    /// Load a file. If `looping` is true, the file loops forever (for splash).
+    /// Load a file. If `looping` is true, the file loops forever.
     fn load_file(&mut self, path: &str, looping: bool) {
         let loop_val = if looping { "inf" } else { "no" };
         let _ = self.send(&serde_json::json!({"command": ["set_property", "loop-file", loop_val]}));
+        let _ = self.send(&serde_json::json!({"command": ["set_property", "loop-playlist", "no"]}));
         let _ = self.send(&serde_json::json!({"command": ["loadfile", path, "replace"]}));
+    }
+
+    /// Load a kiosk playlist that loops infinitely.
+    fn load_playlist(&mut self, paths: &[String]) {
+        if paths.is_empty() {
+            return;
+        }
+        let _ = self.send(&serde_json::json!({"command": ["set_property", "loop-file", "no"]}));
+        let _ = self.send(&serde_json::json!({"command": ["set_property", "loop-playlist", "inf"]}));
+        let _ = self.send(&serde_json::json!({"command": ["loadfile", paths[0], "replace"]}));
+        for path in &paths[1..] {
+            let _ = self.send(&serde_json::json!({"command": ["loadfile", path, "append"]}));
+        }
     }
 
     /// Non-blocking check: did mpv become idle (i.e. playback finished)?
@@ -208,141 +233,277 @@ mod tests {
         fn drop(&mut self) { let _ = std::fs::remove_file(&self.0); }
     }
 
-    const FULL_CONFIG: &str = r#"{
-        "1": {"gpio": 4,  "pin": 7,  "video": "intro.mp4"},
-        "2": {"gpio": 17, "pin": 11, "video": null},
-        "3": {"gpio": 22, "pin": 15, "video": null},
-        "4": {"gpio": 23, "pin": 16, "video": null},
-        "5": {"gpio": 24, "pin": 18, "video": null},
-        "6": {"gpio": 25, "pin": 22, "video": null},
-        "7": {"gpio": 27, "pin": 13, "video": null},
-        "splash": {"image": "bg.jpg", "video": "loop.mp4"}
+    const V2_CONFIG: &str = r#"{
+        "version": 2,
+        "media": [
+            {"file": "intro.mp4", "button": 1},
+            {"file": "promo.mp4", "button": 3},
+            {"file": "landscape.jpg", "button": null},
+            {"file": "demo.mp4", "button": null}
+        ],
+        "buttons": {
+            "1": {"gpio": 4,  "pin": 7},
+            "2": {"gpio": 17, "pin": 11},
+            "3": {"gpio": 22, "pin": 15},
+            "4": {"gpio": 23, "pin": 16},
+            "5": {"gpio": 24, "pin": 18},
+            "6": {"gpio": 25, "pin": 22},
+            "7": {"gpio": 27, "pin": 13}
+        }
     }"#;
 
-    // ── read_slots_from ──────────────────────────────────────────────────────
+    const KIOSK_ONLY_CONFIG: &str = r#"{
+        "version": 2,
+        "media": [
+            {"file": "slide1.jpg", "button": null},
+            {"file": "slide2.png", "button": null},
+            {"file": "loop.mp4", "button": null}
+        ],
+        "buttons": {
+            "1": {"gpio": 4, "pin": 7}
+        }
+    }"#;
+
+    // ── read_config_from ─────────────────────────────────────────────────────
 
     #[test]
-    fn slots_parses_all_seven() {
-        let f = TempConfig::new(FULL_CONFIG);
-        let slots = read_slots_from(f.path()).unwrap();
-        assert_eq!(slots.len(), 7);
+    fn config_parses_media_entries() {
+        let f = TempConfig::new(V2_CONFIG);
+        let config = read_config_from(f.path()).unwrap();
+        assert_eq!(config.media.len(), 4);
     }
 
     #[test]
-    fn slots_parses_gpio_and_video() {
-        let f = TempConfig::new(FULL_CONFIG);
-        let slots = read_slots_from(f.path()).unwrap();
-        let s1 = slots.get("1").unwrap();
-        assert_eq!(s1.gpio, 4);
-        assert_eq!(s1.video.as_deref(), Some("intro.mp4"));
+    fn config_parses_button_assignments() {
+        let f = TempConfig::new(V2_CONFIG);
+        let config = read_config_from(f.path()).unwrap();
+        assert_eq!(config.media[0].button, Some(1));
+        assert_eq!(config.media[0].file, "intro.mp4");
+        assert_eq!(config.media[1].button, Some(3));
+        assert!(config.media[2].button.is_none());
     }
 
     #[test]
-    fn slots_null_video_is_none() {
-        let f = TempConfig::new(FULL_CONFIG);
-        let slots = read_slots_from(f.path()).unwrap();
-        assert!(slots.get("2").unwrap().video.is_none());
+    fn config_parses_buttons_hardware_map() {
+        let f = TempConfig::new(V2_CONFIG);
+        let config = read_config_from(f.path()).unwrap();
+        assert_eq!(config.buttons.len(), 7);
+        assert_eq!(config.buttons.get("1").unwrap().gpio, 4);
     }
 
     #[test]
-    fn slots_ignores_non_numeric_keys() {
-        // "splash" key must not appear as a slot
-        let f = TempConfig::new(FULL_CONFIG);
-        let slots = read_slots_from(f.path()).unwrap();
-        assert!(!slots.contains_key("splash"));
+    fn config_missing_file_is_err() {
+        assert!(read_config_from("/tmp/pivideo_no_such_file_xyz.json").is_err());
     }
 
     #[test]
-    fn slots_missing_file_is_err() {
-        assert!(read_slots_from("/tmp/pivideo_no_such_file_xyz.json").is_err());
-    }
-
-    #[test]
-    fn slots_invalid_json_is_err() {
+    fn config_invalid_json_is_err() {
         let f = TempConfig::new("not json {{{");
-        assert!(read_slots_from(f.path()).is_err());
+        assert!(read_config_from(f.path()).is_err());
     }
 
     #[test]
-    fn slots_skips_entry_missing_gpio() {
-        // A slot without the required "gpio" field is silently dropped
-        let f = TempConfig::new(r#"{"1": {"video": "clip.mp4"}, "2": {"gpio": 17, "video": null}}"#);
-        let slots = read_slots_from(f.path()).unwrap();
-        assert!(!slots.contains_key("1"), "malformed slot should be skipped");
-        assert!(slots.contains_key("2"));
+    fn config_empty_media_is_ok() {
+        let f = TempConfig::new(r#"{"version": 2, "media": [], "buttons": {}}"#);
+        let config = read_config_from(f.path()).unwrap();
+        assert!(config.media.is_empty());
+    }
+
+    // ── button_map ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn button_map_returns_assigned_media_only() {
+        let f = TempConfig::new(V2_CONFIG);
+        let config = read_config_from(f.path()).unwrap();
+        let map = button_map(&config);
+        assert_eq!(map.len(), 2);  // buttons 1 and 3
+        assert!(map.get(&4).unwrap().ends_with("intro.mp4"));   // gpio 4 = button 1
+        assert!(map.get(&22).unwrap().ends_with("promo.mp4"));  // gpio 22 = button 3
     }
 
     #[test]
-    fn slots_empty_config_is_ok() {
-        let f = TempConfig::new("{}");
-        let slots = read_slots_from(f.path()).unwrap();
-        assert!(slots.is_empty());
-    }
-
-    // ── read_splash_from ─────────────────────────────────────────────────────
-
-    #[test]
-    fn splash_parses_image_and_video() {
-        let f = TempConfig::new(FULL_CONFIG);
-        let s = read_splash_from(f.path());
-        assert_eq!(s.image.as_deref(), Some("bg.jpg"));
-        assert_eq!(s.video.as_deref(), Some("loop.mp4"));
+    fn button_map_empty_when_no_assignments() {
+        let f = TempConfig::new(KIOSK_ONLY_CONFIG);
+        let config = read_config_from(f.path()).unwrap();
+        let map = button_map(&config);
+        assert!(map.is_empty());
     }
 
     #[test]
-    fn splash_null_fields_are_none() {
-        let f = TempConfig::new(r#"{"splash": {"image": null, "video": null}}"#);
-        let s = read_splash_from(f.path());
-        assert!(s.image.is_none());
-        assert!(s.video.is_none());
+    fn button_map_ignores_invalid_button_numbers() {
+        let f = TempConfig::new(r#"{
+            "version": 2,
+            "media": [{"file": "clip.mp4", "button": 99}],
+            "buttons": {"1": {"gpio": 4}}
+        }"#);
+        let config = read_config_from(f.path()).unwrap();
+        let map = button_map(&config);
+        assert!(map.is_empty());
+    }
+
+    // ── kiosk_playlist ──────────────────────────────────────────────────────
+
+    #[test]
+    fn kiosk_playlist_returns_unassigned_media() {
+        let f = TempConfig::new(V2_CONFIG);
+        let config = read_config_from(f.path()).unwrap();
+        let playlist = kiosk_playlist(&config);
+        assert_eq!(playlist.len(), 2);
+        assert!(playlist[0].ends_with("landscape.jpg"));
+        assert!(playlist[1].ends_with("demo.mp4"));
     }
 
     #[test]
-    fn splash_missing_key_returns_default() {
-        let f = TempConfig::new(r#"{"1": {"gpio": 4, "video": null}}"#);
-        let s = read_splash_from(f.path());
-        assert!(s.image.is_none());
-        assert!(s.video.is_none());
+    fn kiosk_playlist_all_unassigned() {
+        let f = TempConfig::new(KIOSK_ONLY_CONFIG);
+        let config = read_config_from(f.path()).unwrap();
+        let playlist = kiosk_playlist(&config);
+        assert_eq!(playlist.len(), 3);
     }
 
     #[test]
-    fn splash_missing_file_returns_default() {
-        let s = read_splash_from("/tmp/pivideo_no_such_file_xyz.json");
-        assert!(s.image.is_none());
-        assert!(s.video.is_none());
+    fn kiosk_playlist_empty_when_all_assigned() {
+        let f = TempConfig::new(r#"{
+            "version": 2,
+            "media": [{"file": "clip.mp4", "button": 1}],
+            "buttons": {"1": {"gpio": 4}}
+        }"#);
+        let config = read_config_from(f.path()).unwrap();
+        let playlist = kiosk_playlist(&config);
+        assert!(playlist.is_empty());
+    }
+
+    // ── is_image_file ───────────────────────────────────────────────────────
+
+    #[test]
+    fn is_image_file_detects_images() {
+        assert!(is_image_file("photo.jpg"));
+        assert!(is_image_file("photo.JPEG"));
+        assert!(is_image_file("slide.png"));
+        assert!(is_image_file("bg.webp"));
     }
 
     #[test]
-    fn splash_invalid_json_returns_default() {
-        let f = TempConfig::new("not json");
-        let s = read_splash_from(f.path());
-        assert!(s.image.is_none());
-        assert!(s.video.is_none());
+    fn is_image_file_rejects_videos() {
+        assert!(!is_image_file("clip.mp4"));
+        assert!(!is_image_file("movie.mkv"));
+        assert!(!is_image_file("show.avi"));
     }
 
-    // ── splash_path ─────────────────────────────────────────────────────────
+    // ── Config hot-reload ───────────────────────────────────────────────────
 
     #[test]
-    fn splash_path_prefers_video() {
-        let s = SplashConfig {
-            image: Some("bg.jpg".into()),
-            video: Some("loop.mp4".into()),
-        };
-        let p = splash_path(&s).unwrap();
-        assert!(p.ends_with("loop.mp4"));
-    }
+    fn config_hot_reload_picks_up_changes() {
+        let f = TempConfig::new(V2_CONFIG);
+        let config = read_config_from(f.path()).unwrap();
+        let map = button_map(&config);
+        assert!(map.get(&4).unwrap().ends_with("intro.mp4"));
 
-    #[test]
-    fn splash_path_falls_back_to_image() {
-        let s = SplashConfig { image: Some("bg.jpg".into()), video: None };
-        let p = splash_path(&s).unwrap();
-        assert!(p.ends_with("bg.jpg"));
+        let updated = V2_CONFIG.replace("intro.mp4", "updated.mp4");
+        std::fs::write(f.path(), updated).unwrap();
+
+        let config = read_config_from(f.path()).unwrap();
+        let map = button_map(&config);
+        assert!(map.get(&4).unwrap().ends_with("updated.mp4"));
     }
 
     #[test]
-    fn splash_path_none_when_empty() {
-        let s = SplashConfig { image: None, video: None };
-        assert!(splash_path(&s).is_none());
+    fn kiosk_playlist_hot_reload_picks_up_changes() {
+        let f = TempConfig::new(V2_CONFIG);
+        let config = read_config_from(f.path()).unwrap();
+        let playlist = kiosk_playlist(&config);
+        assert_eq!(playlist.len(), 2);
+
+        // Add a third kiosk item
+        let updated = V2_CONFIG.replace(
+            r#"{"file": "demo.mp4", "button": null}"#,
+            r#"{"file": "demo.mp4", "button": null}, {"file": "extra.mp4", "button": null}"#
+        );
+        std::fs::write(f.path(), updated).unwrap();
+
+        let config = read_config_from(f.path()).unwrap();
+        let playlist = kiosk_playlist(&config);
+        assert_eq!(playlist.len(), 3);
+    }
+
+    // ── poll_idle parsing ───────────────────────────────────────────────────
+
+    #[test]
+    fn poll_idle_detects_idle_active_event() {
+        let events = concat!(
+            r#"{"event":"property-change","id":1,"data":false,"name":"idle-active"}"#, "\n",
+            r#"{"event":"property-change","id":1,"data":true,"name":"idle-active"}"#, "\n",
+        );
+        let cursor = std::io::Cursor::new(events.as_bytes().to_vec());
+        let mut reader = BufReader::new(cursor);
+        let mut line_buf = String::new();
+        let mut became_idle = false;
+
+        loop {
+            line_buf.clear();
+            match reader.read_line(&mut line_buf) {
+                Ok(0) => break,
+                Ok(_) => {
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line_buf) {
+                        if v.get("event").and_then(|e| e.as_str()) == Some("property-change")
+                            && v.get("id") == Some(&serde_json::json!(1))
+                            && v.get("data") == Some(&serde_json::json!(true))
+                        {
+                            became_idle = true;
+                        }
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+        assert!(became_idle);
+    }
+
+    #[test]
+    fn poll_idle_ignores_unrelated_events() {
+        let events = concat!(
+            r#"{"event":"property-change","id":2,"data":true,"name":"pause"}"#, "\n",
+            r#"{"event":"playback-restart"}"#, "\n",
+        );
+        let cursor = std::io::Cursor::new(events.as_bytes().to_vec());
+        let mut reader = BufReader::new(cursor);
+        let mut line_buf = String::new();
+        let mut became_idle = false;
+
+        loop {
+            line_buf.clear();
+            match reader.read_line(&mut line_buf) {
+                Ok(0) => break,
+                Ok(_) => {
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line_buf) {
+                        if v.get("event").and_then(|e| e.as_str()) == Some("property-change")
+                            && v.get("id") == Some(&serde_json::json!(1))
+                            && v.get("data") == Some(&serde_json::json!(true))
+                        {
+                            became_idle = true;
+                        }
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+        assert!(!became_idle);
+    }
+
+    // ── load_file / load_playlist IPC commands ──────────────────────────────
+
+    #[test]
+    fn load_file_sets_loop_inf_for_looping() {
+        let loop_val = if true { "inf" } else { "no" };
+        let cmd = serde_json::json!({"command": ["set_property", "loop-file", loop_val]});
+        assert_eq!(cmd["command"][2], "inf");
+    }
+
+    #[test]
+    fn load_file_sets_loop_no_for_single_play() {
+        let loop_val = if false { "inf" } else { "no" };
+        let cmd = serde_json::json!({"command": ["set_property", "loop-file", loop_val]});
+        assert_eq!(cmd["command"][2], "no");
     }
 
     // ── Concurrent button press behaviour ────────────────────────────────────
@@ -365,32 +526,32 @@ mod tests {
 fn main() -> Result<()> {
     env_logger::init();
 
-    // Read GPIO pin assignments at startup. The pin mapping is hardware-fixed
-    // so we only read it once. Restart the daemon if pins change.
-    let slots = read_slots()?;
-    let pin_to_slot: HashMap<u8, String> = slots.iter()
-        .map(|(slot, cfg)| (cfg.gpio, slot.clone()))
-        .collect();
+    let config = read_config()?;
 
-    if pin_to_slot.is_empty() {
-        anyhow::bail!("No slots configured in config.json");
-    }
+    // Build GPIO→video mapping for button-assigned media
+    let btn_map = button_map(&config);
 
-    let gpio = Gpio::new()?;
-    let pins: Vec<_> = pin_to_slot.keys()
-        .map(|&n| gpio.get(n).map(|p| (n, p.into_input_pullup())))
-        .collect::<std::result::Result<_, _>>()?;
+    // Only set up GPIO if there are button assignments
+    let pins: Vec<(u8, rppal::gpio::InputPin)> = if btn_map.is_empty() {
+        log::info!("No buttons assigned — running in kiosk-only mode");
+        vec![]
+    } else {
+        let gpio = Gpio::new()?;
+        btn_map.keys()
+            .map(|&n| gpio.get(n).map(|p| (n, p.into_input_pullup())))
+            .collect::<std::result::Result<_, _>>()?
+    };
 
-    log::info!("PiVideo daemon started, watching {} pins", pins.len());
+    log::info!("PiVideo daemon started, {} buttons, kiosk-only={}", pins.len(), pins.is_empty());
 
     let mut mpv = Mpv::spawn()?;
     let mut idle = true;
 
-    // Start idle splash immediately
-    let splash = read_splash();
-    if let Some(path) = splash_path(&splash) {
-        log::info!("Idle: {}", path);
-        mpv.load_file(&path, true);
+    // Start kiosk playlist immediately
+    let playlist = kiosk_playlist(&config);
+    if !playlist.is_empty() {
+        log::info!("Starting kiosk playlist ({} items)", playlist.len());
+        mpv.load_playlist(&playlist);
     }
 
     loop {
@@ -398,24 +559,30 @@ fn main() -> Result<()> {
             log::warn!("mpv crashed, restarting...");
             mpv = Mpv::spawn()?;
             idle = true;
-            let splash = read_splash();
-            if let Some(path) = splash_path(&splash) {
-                log::info!("Idle: {}", path);
-                mpv.load_file(&path, true);
+            let config = read_config().unwrap_or(Config {
+                version: Some(2), media: vec![], buttons: HashMap::new()
+            });
+            let playlist = kiosk_playlist(&config);
+            if !playlist.is_empty() {
+                log::info!("Restarting kiosk playlist ({} items)", playlist.len());
+                mpv.load_playlist(&playlist);
             }
         }
 
         if idle {
-            // Drain events while idle (nothing to act on)
+            // Drain events while idle (nothing to act on — playlist loops)
             let _ = mpv.poll_idle();
         } else {
-            // Playing a button video — return to idle when it finishes
+            // Playing a button video — return to kiosk when it finishes
             if mpv.poll_idle() {
                 idle = true;
-                let splash = read_splash();
-                if let Some(path) = splash_path(&splash) {
-                    log::info!("Idle: {}", path);
-                    mpv.load_file(&path, true);
+                let config = read_config().unwrap_or(Config {
+                    version: Some(2), media: vec![], buttons: HashMap::new()
+                });
+                let playlist = kiosk_playlist(&config);
+                if !playlist.is_empty() {
+                    log::info!("Returning to kiosk playlist ({} items)", playlist.len());
+                    mpv.load_playlist(&playlist);
                 }
             }
         }
@@ -423,15 +590,15 @@ fn main() -> Result<()> {
         // Check GPIO pins for button presses
         for (pin_num, pin) in &pins {
             if pin.is_low() {
-                let slot = &pin_to_slot[pin_num];
-
-                // Re-read video assignment so web UI changes take effect immediately
-                let video_path = read_slots().ok()
-                    .and_then(|s| s.get(slot)?.video.clone())
-                    .map(|file| format!("{}/{}", video_dir(), file));
+                // Re-read config so web UI changes take effect immediately
+                let video_path = read_config().ok()
+                    .and_then(|c| {
+                        let map = button_map(&c);
+                        map.get(pin_num).cloned()
+                    });
 
                 match video_path {
-                    None => log::warn!("Slot {slot} has no video assigned"),
+                    None => log::warn!("GPIO {} has no video assigned", pin_num),
                     Some(path) => {
                         log::info!("Playing: {}", path);
                         mpv.load_file(&path, false);

@@ -67,7 +67,7 @@ class _ServerPatch:
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
 
-# ── Multipart parser ─────────────────────────────────────────────────────────
+# ── Multipart parser ───────────────────────────────────────────────────────
 
 class TestMultipartParser(unittest.TestCase):
 
@@ -128,12 +128,12 @@ class TestMultipartParser(unittest.TestCase):
         self.assertIsNone(form.getvalue("x"))
 
     def test_multiple_text_fields(self):
-        form = self._parse([("slot", "2", None), ("splash", "image", None)])
-        self.assertEqual(form.getvalue("slot"), "2")
-        self.assertEqual(form.getvalue("splash"), "image")
+        form = self._parse([("index", "2", None), ("button", "3", None)])
+        self.assertEqual(form.getvalue("index"), "2")
+        self.assertEqual(form.getvalue("button"), "3")
 
 
-# ── Filename sanitizer ───────────────────────────────────────────────────────
+# ── Filename sanitizer ─────────────────────────────────────────────────────
 
 class TestSanitizeFilename(unittest.TestCase):
 
@@ -168,7 +168,6 @@ class TestSanitizeFilename(unittest.TestCase):
         self.assertIsNone(err)
 
     def test_exactly_255_bytes_accepted(self):
-        # 251 'a' chars + '.mp4' = 255 bytes (all ASCII)
         name, err = server._sanitize_filename("a" * 251 + ".mp4")
         self.assertIsNone(err)
 
@@ -178,9 +177,9 @@ class TestSanitizeFilename(unittest.TestCase):
         self.assertIsNotNone(err)
 
 
-# ── Config I/O ───────────────────────────────────────────────────────────────
+# ── Config I/O ──────────────────────────────────────────────────────────────
 
-class TestConfigFunctions(unittest.TestCase):
+class TestMediaConfig(unittest.TestCase):
 
     def setUp(self):
         self._patch = _ServerPatch()
@@ -189,52 +188,192 @@ class TestConfigFunctions(unittest.TestCase):
     def tearDown(self):
         self._patch.__exit__()
 
-    def test_load_config_missing_file_gives_defaults(self):
-        config = server.load_config()
-        self.assertEqual(set(config.keys()), set(range(1, 8)))
-        for slot in config.values():
-            self.assertIsNone(slot["video"])
+    def test_load_media_empty_when_no_file(self):
+        media = server.load_media()
+        self.assertEqual(media, [])
 
-    def test_load_config_bad_json_gives_defaults(self):
+    def test_load_media_bad_json_returns_empty(self):
         server.CONFIG_PATH.write_text("not json {{{")
-        config = server.load_config()
-        self.assertEqual(set(config.keys()), set(range(1, 8)))
+        media = server.load_media()
+        self.assertEqual(media, [])
 
     def test_save_and_load_roundtrip(self):
-        config = server.load_config()
-        config[1]["video"] = "button1.mp4"
-        config[3]["video"] = "button3.mp4"
-        server.save_config(config)
-        loaded = server.load_config()
-        self.assertEqual(loaded[1]["video"], "button1.mp4")
-        self.assertEqual(loaded[3]["video"], "button3.mp4")
-        self.assertIsNone(loaded[2]["video"])
+        media = [
+            {"file": "intro.mp4", "button": 1},
+            {"file": "landscape.jpg", "button": None},
+        ]
+        server.save_media(media)
+        loaded = server.load_media()
+        self.assertEqual(len(loaded), 2)
+        self.assertEqual(loaded[0]["file"], "intro.mp4")
+        self.assertEqual(loaded[0]["button"], 1)
+        self.assertIsNone(loaded[1]["button"])
 
-    def test_load_config_migrates_old_string_format(self):
-        server.CONFIG_PATH.write_text(json.dumps({"1": "old_video.mp4"}))
-        config = server.load_config()
-        self.assertEqual(config[1]["video"], "old_video.mp4")
+    def test_save_media_caps_at_max(self):
+        media = [{"file": f"f{i}.mp4", "button": None} for i in range(15)]
+        server.save_media(media)
+        loaded = server.load_media()
+        self.assertEqual(len(loaded), server.MAX_MEDIA)
 
-    def test_load_splash_defaults_when_absent(self):
-        splash = server.load_splash()
-        self.assertIsNone(splash["image"])
-        self.assertIsNone(splash["video"])
+    def test_load_media_validates_button_range(self):
+        server.save_media([{"file": "clip.mp4", "button": 99}])
+        loaded = server.load_media()
+        self.assertIsNone(loaded[0]["button"])
 
-    def test_save_and_load_splash_roundtrip(self):
-        server.save_splash({"image": "idle.jpg", "video": None})
-        splash = server.load_splash()
-        self.assertEqual(splash["image"], "idle.jpg")
-        self.assertIsNone(splash["video"])
-
-    def test_save_splash_preserves_slot_config(self):
-        config = server.load_config()
-        config[2]["video"] = "clip.mp4"
-        server.save_config(config)
-        server.save_splash({"image": "bg.jpg", "video": None})
-        self.assertEqual(server.load_config()[2]["video"], "clip.mp4")
+    def test_assigned_buttons(self):
+        media = [
+            {"file": "a.mp4", "button": 1},
+            {"file": "b.mp4", "button": 3},
+            {"file": "c.jpg", "button": None},
+        ]
+        assigned = server._assigned_buttons(media)
+        self.assertEqual(assigned, {1, 3})
 
 
-# ── HTTP integration ─────────────────────────────────────────────────────────
+# ── Migration ──────────────────────────────────────────────────────────────
+
+class TestMigration(unittest.TestCase):
+
+    def setUp(self):
+        self._patch = _ServerPatch()
+        self._patch.__enter__()
+
+    def tearDown(self):
+        self._patch.__exit__()
+
+    def test_migrate_v1_slot_videos(self):
+        v1 = {
+            "1": {"gpio": 4, "pin": 7, "video": "intro.mp4"},
+            "2": {"gpio": 17, "pin": 11, "video": None},
+            "3": {"gpio": 22, "pin": 15, "video": "demo.mp4"},
+        }
+        server.CONFIG_PATH.write_text(json.dumps(v1))
+        media = server.load_media()
+        files = {m["file"] for m in media}
+        self.assertIn("intro.mp4", files)
+        self.assertIn("demo.mp4", files)
+        # Null videos should not be migrated
+        self.assertEqual(len(media), 2)
+
+    def test_migrate_v1_splash_to_kiosk(self):
+        v1 = {
+            "1": {"gpio": 4, "pin": 7, "video": None},
+            "splash": {"image": "bg.jpg", "video": "loop.mp4"},
+        }
+        server.CONFIG_PATH.write_text(json.dumps(v1))
+        media = server.load_media()
+        kiosk = [m for m in media if m["button"] is None]
+        self.assertEqual(len(kiosk), 2)
+        files = {m["file"] for m in kiosk}
+        self.assertIn("bg.jpg", files)
+        self.assertIn("loop.mp4", files)
+
+    def test_migrate_v1_old_string_format(self):
+        v1 = {"1": "old_video.mp4"}
+        server.CONFIG_PATH.write_text(json.dumps(v1))
+        media = server.load_media()
+        self.assertEqual(len(media), 1)
+        self.assertEqual(media[0]["file"], "old_video.mp4")
+        self.assertEqual(media[0]["button"], 1)
+
+    def test_migrate_writes_v2_to_disk(self):
+        v1 = {"1": {"gpio": 4, "pin": 7, "video": "intro.mp4"}}
+        server.CONFIG_PATH.write_text(json.dumps(v1))
+        server.load_media()
+        raw = json.loads(server.CONFIG_PATH.read_text())
+        self.assertEqual(raw["version"], 2)
+        self.assertIn("media", raw)
+
+    def test_v2_config_not_re_migrated(self):
+        v2 = {
+            "version": 2,
+            "media": [{"file": "a.mp4", "button": 1}],
+            "buttons": {"1": {"gpio": 4, "pin": 7}},
+        }
+        server.CONFIG_PATH.write_text(json.dumps(v2))
+        media = server.load_media()
+        self.assertEqual(len(media), 1)
+        self.assertEqual(media[0]["file"], "a.mp4")
+
+    def test_migrate_mixed_slots_and_splash(self):
+        v1 = {
+            "1": {"gpio": 4, "pin": 7, "video": "intro.mp4"},
+            "2": {"gpio": 17, "pin": 11, "video": "safety.mp4"},
+            "splash": {"image": "bg.jpg", "video": None},
+        }
+        server.CONFIG_PATH.write_text(json.dumps(v1))
+        media = server.load_media()
+        button_media = [m for m in media if m["button"] is not None]
+        kiosk_media = [m for m in media if m["button"] is None]
+        self.assertEqual(len(button_media), 2)
+        self.assertEqual(len(kiosk_media), 1)
+        self.assertEqual(kiosk_media[0]["file"], "bg.jpg")
+
+
+# ── HTML escaping / XSS ────────────────────────────────────────────────────
+
+class TestHTMLEscaping(unittest.TestCase):
+
+    def setUp(self):
+        self._patch = _ServerPatch()
+        self._patch.__enter__()
+
+    def tearDown(self):
+        self._patch.__exit__()
+
+    def test_render_page_escapes_message(self):
+        page = server.render_page(message='<script>alert("xss")</script>')
+        self.assertNotIn("<script>", page)
+        self.assertIn("&lt;script&gt;", page)
+
+    def test_render_page_escapes_error(self):
+        page = server.render_page(error='<img onerror="alert(1)">')
+        self.assertNotIn('onerror="alert(1)"', page)
+        self.assertIn("&lt;img", page)
+
+    def test_render_page_escapes_media_filename(self):
+        server.save_media([{"file": '<script>alert("xss")</script>.mp4', "button": None}])
+        page = server.render_page()
+        self.assertNotIn("<script>alert", page)
+        self.assertIn("&lt;script&gt;", page)
+
+    def test_render_page_escapes_button_assigned_filename(self):
+        server.save_media([{"file": '<img src=x>.mp4', "button": 1}])
+        page = server.render_page()
+        self.assertNotIn('<img src=x>', page)
+        self.assertIn("&lt;img", page)
+
+
+# ── _file_info_html ────────────────────────────────────────────────────────
+
+class TestFileInfoHtml(unittest.TestCase):
+
+    def setUp(self):
+        self._patch = _ServerPatch()
+        self._patch.__enter__()
+
+    def tearDown(self):
+        self._patch.__exit__()
+
+    def test_existing_file_shows_size(self):
+        (server.VIDEO_DIR / "clip.mp4").write_bytes(b"x" * 2048)
+        result = server._file_info_html("clip.mp4")
+        self.assertIn("MB", result)
+
+    def test_missing_file_shows_warning(self):
+        result = server._file_info_html("nonexistent.mp4")
+        self.assertIn("missing", result)
+
+    def test_no_filename_returns_empty(self):
+        result = server._file_info_html(None)
+        self.assertEqual(result, "")
+
+    def test_empty_filename_returns_empty(self):
+        result = server._file_info_html("")
+        self.assertEqual(result, "")
+
+
+# ── HTTP integration ───────────────────────────────────────────────────────
 
 class TestHTTPServer(unittest.TestCase):
     """End-to-end tests against a live server instance."""
@@ -257,7 +396,6 @@ class TestHTTPServer(unittest.TestCase):
         shutil.rmtree(cls.tmpdir, ignore_errors=True)
 
     def setUp(self):
-        # Reset config before each test
         server.CONFIG_PATH.unlink(missing_ok=True)
 
     def _conn(self):
@@ -270,10 +408,18 @@ class TestHTTPServer(unittest.TestCase):
                      headers={"Content-Type": ct, "Content-Length": str(len(body))})
         return conn.getresponse()
 
-    def _clear(self, params):
+    def _assign(self, params):
         body = "&".join(f"{k}={v}" for k, v in params.items()).encode()
         conn = self._conn()
-        conn.request("POST", "/clear", body=body,
+        conn.request("POST", "/assign", body=body,
+                     headers={"Content-Type": "application/x-www-form-urlencoded",
+                               "Content-Length": str(len(body))})
+        return conn.getresponse()
+
+    def _delete(self, params):
+        body = "&".join(f"{k}={v}" for k, v in params.items()).encode()
+        conn = self._conn()
+        conn.request("POST", "/delete", body=body,
                      headers={"Content-Type": "application/x-www-form-urlencoded",
                                "Content-Length": str(len(body))})
         return conn.getresponse()
@@ -294,81 +440,69 @@ class TestHTTPServer(unittest.TestCase):
         self.assertEqual(resp.status, 404)
         resp.read()
 
-    # ── Valid uploads ─────────────────────────────────────────────────────────
+    # ── Upload ───────────────────────────────────────────────────────────────
 
-    def test_upload_video_to_slot(self):
-        resp = self._upload([("slot", "1", None), ("file", b"fakevideo", "intro.mp4")])
+    def test_upload_video(self):
+        resp = self._upload([("file", b"fakevideo", "intro.mp4")])
         resp.read()
         self.assertIn(resp.status, (200, 303))
-        self.assertEqual(server.load_config()[1]["video"], "intro.mp4")
+        media = server.load_media()
+        self.assertEqual(len(media), 1)
+        self.assertEqual(media[0]["file"], "intro.mp4")
+        self.assertIsNone(media[0]["button"])
         self.assertTrue((server.VIDEO_DIR / "intro.mp4").exists())
 
-    def test_upload_splash_video(self):
-        resp = self._upload([("splash", "video", None), ("file", b"data", "loop.mp4")])
+    def test_upload_with_button_assignment(self):
+        resp = self._upload([("button", "3", None), ("file", b"data", "clip.mp4")])
         resp.read()
         self.assertIn(resp.status, (200, 303))
-        self.assertEqual(server.load_splash()["video"], "loop.mp4")
+        media = server.load_media()
+        self.assertEqual(media[0]["button"], 3)
 
-    def test_upload_splash_image(self):
-        resp = self._upload([("splash", "image", None), ("file", b"data", "bg.jpg")])
+    def test_upload_image(self):
+        resp = self._upload([("file", b"imgdata", "photo.jpg")])
         resp.read()
         self.assertIn(resp.status, (200, 303))
-        self.assertEqual(server.load_splash()["image"], "bg.jpg")
-
-    # ── Extension checks ─────────────────────────────────────────────────────
+        media = server.load_media()
+        self.assertEqual(media[0]["file"], "photo.jpg")
 
     def test_upload_invalid_extension_400(self):
-        resp = self._upload([("slot", "2", None), ("file", b"data", "virus.exe")])
+        resp = self._upload([("file", b"data", "virus.exe")])
         body = resp.read()
         self.assertEqual(resp.status, 400)
         self.assertIn(b"Unsupported", body)
 
-    def test_upload_splash_video_as_image_400(self):
-        resp = self._upload([("splash", "image", None), ("file", b"data", "bg.mp4")])
-        body = resp.read()
-        self.assertEqual(resp.status, 400)
-
-    # ── Filename fuzzing ─────────────────────────────────────────────────────
-
     def test_upload_path_traversal_saved_safely(self):
         """../../evil.mp4 must be stored as evil.mp4, not outside VIDEO_DIR."""
-        resp = self._upload([("slot", "1", None), ("file", b"data", "../../evil.mp4")])
+        resp = self._upload([("file", b"data", "../../evil.mp4")])
         resp.read()
         self.assertIn(resp.status, (200, 303))
-        saved = server.load_config()[1]["video"]
-        self.assertEqual(saved, "evil.mp4")
+        media = server.load_media()
+        self.assertEqual(media[0]["file"], "evil.mp4")
         self.assertTrue((server.VIDEO_DIR / "evil.mp4").exists())
         self.assertFalse((server.VIDEO_DIR.parent / "evil.mp4").exists())
 
     def test_upload_utf8_filename(self):
-        resp = self._upload([("slot", "3", None), ("file", b"data", "vidéo.mp4")])
+        resp = self._upload([("file", b"data", "vidéo.mp4")])
         resp.read()
         self.assertIn(resp.status, (200, 303))
-        saved = server.load_config()[3]["video"]
-        self.assertIsNotNone(saved)
-        self.assertTrue(saved.endswith(".mp4"))
+        media = server.load_media()
+        self.assertTrue(media[0]["file"].endswith(".mp4"))
 
     def test_upload_null_byte_filename_rejected(self):
-        resp = self._upload([("slot", "5", None), ("file", b"data", "evil\x00.mp4")])
-        body = resp.read()
+        resp = self._upload([("file", b"data", "evil\x00.mp4")])
+        resp.read()
         self.assertEqual(resp.status, 400)
 
     def test_upload_very_long_filename_rejected(self):
         long_name = "a" * 300 + ".mp4"
-        resp = self._upload([("slot", "4", None), ("file", b"data", long_name)])
+        resp = self._upload([("file", b"data", long_name)])
         body = resp.read()
         self.assertEqual(resp.status, 400)
         self.assertIn(b"long", body.lower())
 
-    # ── Missing / invalid fields ─────────────────────────────────────────────
-
     def test_upload_no_file_field_400(self):
-        resp = self._upload([("slot", "1", None)])
-        resp.read()
-        self.assertEqual(resp.status, 400)
-
-    def test_upload_invalid_slot_400(self):
-        resp = self._upload([("slot", "99", None), ("file", b"data", "clip.mp4")])
+        resp = self._upload([("button", "1", None)])
         resp.read()
         self.assertEqual(resp.status, 400)
 
@@ -381,6 +515,21 @@ class TestHTTPServer(unittest.TestCase):
         resp.read()
         self.assertEqual(resp.status, 400)
 
+    def test_upload_duplicate_button_400(self):
+        self._upload([("button", "1", None), ("file", b"data", "a.mp4")]).read()
+        resp = self._upload([("button", "1", None), ("file", b"data", "b.mp4")])
+        body = resp.read()
+        self.assertEqual(resp.status, 400)
+        self.assertIn(b"already assigned", body)
+
+    def test_upload_library_full_400(self):
+        for i in range(server.MAX_MEDIA):
+            self._upload([("file", b"data", f"f{i}.mp4")]).read()
+        resp = self._upload([("file", b"data", "extra.mp4")])
+        body = resp.read()
+        self.assertEqual(resp.status, 400)
+        self.assertIn(b"full", body.lower())
+
     def test_post_unknown_path_404(self):
         body = b""
         conn = self._conn()
@@ -389,12 +538,12 @@ class TestHTTPServer(unittest.TestCase):
         resp.read()
         self.assertEqual(resp.status, 404)
 
-    # ── Size limit ───────────────────────────────────────────────────────────
+    # ── Size limit ──────────────────────────────────────────────────────────
 
     def test_upload_over_size_limit_413(self):
-        server.MAX_UPLOAD_BYTES = 10  # 10 bytes — tiny limit for testing
+        server.MAX_UPLOAD_BYTES = 10
         try:
-            body, ct = _multipart([("slot", "1", None), ("file", b"x" * 100, "clip.mp4")])
+            body, ct = _multipart([("file", b"x" * 100, "clip.mp4")])
             conn = self._conn()
             conn.request("POST", "/upload", body=body,
                          headers={"Content-Type": ct, "Content-Length": str(len(body))})
@@ -404,69 +553,136 @@ class TestHTTPServer(unittest.TestCase):
         finally:
             server.MAX_UPLOAD_BYTES = self._orig_limit
 
-    # ── Disk full simulation ─────────────────────────────────────────────────
+    # ── Disk full simulation ────────────────────────────────────────────────
 
     def test_upload_disk_full_returns_507(self):
         def _raise_nospc(*a, **kw):
             raise OSError(errno.ENOSPC, "No space left on device")
 
         with patch("shutil.copyfileobj", side_effect=_raise_nospc):
-            resp = self._upload([("slot", "1", None), ("file", b"data", "clip.mp4")])
+            resp = self._upload([("file", b"data", "clip.mp4")])
             body = resp.read()
         self.assertEqual(resp.status, 507)
         self.assertIn(b"space", body.lower())
 
     def test_upload_disk_full_no_partial_file(self):
-        """A failed write must not leave a partial file on disk."""
         def _raise_nospc(*a, **kw):
             raise OSError(errno.ENOSPC, "No space left on device")
 
         with patch("shutil.copyfileobj", side_effect=_raise_nospc):
-            self._upload([("slot", "1", None), ("file", b"data", "clip.mp4")]).read()
+            self._upload([("file", b"data", "clip.mp4")]).read()
 
         self.assertFalse((server.VIDEO_DIR / "clip.mp4").exists())
 
     def test_upload_disk_full_config_not_updated(self):
-        """Config must not be updated when the file write fails."""
         def _raise_nospc(*a, **kw):
             raise OSError(errno.ENOSPC, "No space left on device")
 
         with patch("shutil.copyfileobj", side_effect=_raise_nospc):
-            self._upload([("slot", "2", None), ("file", b"data", "clip.mp4")]).read()
+            self._upload([("file", b"data", "clip.mp4")]).read()
 
-        self.assertIsNone(server.load_config()[2]["video"])
+        self.assertEqual(server.load_media(), [])
 
-    def test_upload_splash_disk_full_returns_507(self):
-        def _raise_nospc(*a, **kw):
-            raise OSError(errno.ENOSPC, "No space left on device")
+    # ── Assign ──────────────────────────────────────────────────────────────
 
-        with patch("shutil.copyfileobj", side_effect=_raise_nospc):
-            resp = self._upload([("splash", "video", None), ("file", b"data", "loop.mp4")])
-            body = resp.read()
-        self.assertEqual(resp.status, 507)
-
-    # ── Clear ────────────────────────────────────────────────────────────────
-
-    def test_clear_slot(self):
-        self._upload([("slot", "1", None), ("file", b"data", "tmp.mp4")]).read()
-        self.assertEqual(server.load_config()[1]["video"], "tmp.mp4")
-        resp = self._clear({"slot": "1"})
+    def test_assign_button(self):
+        self._upload([("file", b"data", "clip.mp4")]).read()
+        resp = self._assign({"index": "0", "button": "2"})
         resp.read()
         self.assertIn(resp.status, (200, 303))
-        self.assertIsNone(server.load_config()[1]["video"])
+        media = server.load_media()
+        self.assertEqual(media[0]["button"], 2)
 
-    def test_clear_splash_image(self):
-        self._upload([("splash", "image", None), ("file", b"data", "bg.jpg")]).read()
-        self.assertEqual(server.load_splash()["image"], "bg.jpg")
-        resp = self._clear({"splash": "image"})
+    def test_assign_unassign_button(self):
+        self._upload([("button", "1", None), ("file", b"data", "clip.mp4")]).read()
+        self.assertEqual(server.load_media()[0]["button"], 1)
+        resp = self._assign({"index": "0", "button": ""})
         resp.read()
         self.assertIn(resp.status, (200, 303))
-        self.assertIsNone(server.load_splash()["image"])
+        self.assertIsNone(server.load_media()[0]["button"])
 
-    def test_clear_invalid_slot_400(self):
-        resp = self._clear({"slot": "99"})
+    def test_assign_duplicate_button_400(self):
+        self._upload([("button", "1", None), ("file", b"data", "a.mp4")]).read()
+        self._upload([("file", b"data", "b.mp4")]).read()
+        resp = self._assign({"index": "1", "button": "1"})
+        body = resp.read()
+        self.assertEqual(resp.status, 400)
+        self.assertIn(b"already assigned", body)
+
+    def test_assign_invalid_index_400(self):
+        resp = self._assign({"index": "99", "button": "1"})
         resp.read()
         self.assertEqual(resp.status, 400)
+
+    def test_assign_reassign_same_button_ok(self):
+        """Reassigning the same button to the same media entry should succeed."""
+        self._upload([("button", "1", None), ("file", b"data", "a.mp4")]).read()
+        resp = self._assign({"index": "0", "button": "1"})
+        resp.read()
+        self.assertIn(resp.status, (200, 303))
+
+    # ── Delete ──────────────────────────────────────────────────────────────
+
+    def test_delete_removes_from_config_and_disk(self):
+        self._upload([("file", b"data", "tmp.mp4")]).read()
+        self.assertTrue((server.VIDEO_DIR / "tmp.mp4").exists())
+        self.assertEqual(len(server.load_media()), 1)
+        resp = self._delete({"index": "0"})
+        resp.read()
+        self.assertIn(resp.status, (200, 303))
+        self.assertEqual(len(server.load_media()), 0)
+        self.assertFalse((server.VIDEO_DIR / "tmp.mp4").exists())
+
+    def test_delete_invalid_index_400(self):
+        resp = self._delete({"index": "99"})
+        resp.read()
+        self.assertEqual(resp.status, 400)
+
+    def test_delete_shifts_indices(self):
+        self._upload([("file", b"data", "a.mp4")]).read()
+        self._upload([("file", b"data", "b.mp4")]).read()
+        self._upload([("file", b"data", "c.mp4")]).read()
+        self._delete({"index": "0"}).read()
+        media = server.load_media()
+        self.assertEqual(len(media), 2)
+        self.assertEqual(media[0]["file"], "b.mp4")
+        self.assertEqual(media[1]["file"], "c.mp4")
+
+
+# ── Upload XSS via HTTP ───────────────────────────────────────────────────
+
+class TestHTTPXss(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmpdir = tempfile.mkdtemp()
+        server.VIDEO_DIR = Path(cls.tmpdir)
+        server.CONFIG_PATH = Path(cls.tmpdir) / "config.json"
+
+        cls.httpd = server.HTTPServer(("127.0.0.1", 0), server.Handler)
+        cls.port = cls.httpd.server_address[1]
+        threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.shutdown()
+        shutil.rmtree(cls.tmpdir, ignore_errors=True)
+
+    def _upload(self, fields):
+        body, ct = _multipart(fields)
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        conn.request("POST", "/upload", body=body,
+                     headers={"Content-Type": ct, "Content-Length": str(len(body))})
+        return conn.getresponse()
+
+    def test_xss_filename_escaped_in_page(self):
+        xss = '<script>alert(1)</script>.mp4'
+        self._upload([("file", b"data", xss)]).read()
+
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        conn.request("GET", "/")
+        page = conn.getresponse().read().decode()
+        self.assertNotIn("<script>alert", page)
 
 
 if __name__ == "__main__":

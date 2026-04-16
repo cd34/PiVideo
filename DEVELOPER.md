@@ -2,26 +2,19 @@
 
 ## How It Works
 
-A Rust daemon runs on the Pi and polls the GPIO pins every 10ms. When a button is pressed, it reads `config.json` to find the assigned video and plays it fullscreen using `mpv`. The web UI writes the same `config.json`, so reassignments are picked up immediately without restarting anything.
+A Rust daemon runs on the Pi and reads `config.json` for a media library (up to 10 files). Media not assigned to a button loops as a kiosk slideshow via mpv's playlist mode. Media assigned to a button plays fullscreen when the corresponding GPIO pin goes low. The web UI writes the same `config.json`, so changes are picked up immediately without restarting anything.
 
-### Idle screen
+### Kiosk rotation
 
-When no button video is playing, the screen shows an idle splash. Two options, configured from the web UI:
-
-- **Idle video** — a video that loops continuously (takes priority over idle image)
-- **Idle image** — a still image displayed indefinitely (fallback if no idle video is set)
-
-If neither is configured, the screen goes black when idle.
-
-Supported idle image formats: `.jpg`, `.jpeg`, `.png`, `.webp`, `.bmp`, `.gif`
+Media entries without a button assignment form the kiosk playlist. The daemon loads them into mpv with `loop-playlist=inf`. Videos play to completion; images display for 10 seconds (controlled by mpv's `--image-display-duration`). If the playlist is empty, the screen stays black.
 
 ### Button press behavior
 
-Pressing a button always interrupts whatever is currently on screen — whether that is the idle splash or a video from a different button — and immediately starts the assigned video. When the video finishes, the display returns to the idle splash.
+Pressing a button always interrupts whatever is currently on screen — whether that is the kiosk slideshow or a video from a different button — and immediately starts the assigned video. When the video finishes, the kiosk playlist resumes from the beginning.
 
-### Single-video loop
+### Kiosk-only mode
 
-To loop one video endlessly without any buttons: assign it as the **idle video** and leave all button slots empty.
+If no media entries are assigned to buttons, the daemon skips GPIO initialization entirely and runs as a pure kiosk slideshow.
 
 ### Repository layout
 
@@ -34,16 +27,18 @@ web/          Python web UI for uploading and managing videos
 ### Components
 
 **Daemon (`daemon/`)** — Rust binary that:
-- Reads GPIO pin assignments from `config.json` at startup
-- Polls pins every 10ms; plays the assigned video fullscreen via `mpv` on press
-- Any button press kills the current video (or idle splash) and starts the new one immediately
+- Reads media library and button assignments from `config.json`
+- Loads unassigned media into mpv as a looping kiosk playlist
+- Polls GPIO pins every 10ms; plays the assigned video fullscreen on button press
 - Waits for button release before resuming (debounce)
-- Shows idle splash (looping video or still image) when no button video is playing
+- Returns to kiosk playlist when button video finishes
+- Skips GPIO entirely in kiosk-only mode (no button assignments)
 - Runs as a systemd service, starts on boot
 
 **Web UI (`web/`)** — Lightweight Python web server (no dependencies beyond stdlib) that:
-- Shows idle screen controls (idle video + idle image) and 7 button slots
-- Accepts video and image uploads and writes assignments to `config.json`
+- Shows a media library (up to 10 files) with button assignment dropdowns
+- Accepts image and video uploads; manages assignments via `/upload`, `/assign`, `/delete`
+- Automatically migrates v1 config format to v2 on first load
 - Displays a reboot notice when a system update requires one
 - Starts on boot via systemd, accessible at `http://<hostname>.local:8080`
 
